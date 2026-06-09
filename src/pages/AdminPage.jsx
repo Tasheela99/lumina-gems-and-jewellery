@@ -59,7 +59,9 @@ import {
   auth,
   loginWithGoogle,
   logoutAdmin,
+  generateSlug,
 } from '../services/firebase';
+import { migrateProductsCollection } from '../utils/migrateProducts';
 import { onAuthStateChanged } from 'firebase/auth';
 import CollectionManager from '../components/admin/CollectionManager';
 import { CATEGORY_OPTIONS, GEMSTONE_CATEGORIES, GEMSTONE_MONTHS, GEMSTONE_STATUS_OPTIONS } from '../utils/constants';
@@ -68,6 +70,7 @@ import { formatCurrency } from '../utils/formatCurrency';
 // ── Empty form state ─────────────────────────────────────────────────────────
 const emptyForm = {
   name: '',
+  slug: '',
   category: 'Gem',
   price: '',
   description: '',
@@ -82,6 +85,7 @@ const emptyForm = {
 
 const emptyGemstoneForm = {
   name: '',
+  slug: '',
   nameSi: '',
   imageUrl: '',
   description: '',
@@ -190,6 +194,7 @@ const ProductFormDialog = ({ open, onClose, onSaved, editProduct, defaultCategor
     if (editProduct) {
       setForm({
         name: editProduct.name || '',
+        slug: editProduct.slug || '',
         category: editProduct.category || 'Gem',
         price: String(editProduct.price || ''),
         description: editProduct.description || '',
@@ -213,7 +218,14 @@ const ProductFormDialog = ({ open, onClose, onSaved, editProduct, defaultCategor
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    setForm((prev) => {
+      const nextValue = type === 'checkbox' ? checked : value;
+      const nextForm = { ...prev, [name]: nextValue };
+      if (name === 'name' && (prev.slug === '' || prev.slug === generateSlug(prev.name))) {
+        nextForm.slug = generateSlug(nextValue);
+      }
+      return nextForm;
+    });
   };
 
   const handleFilesAdded = (files) => {
@@ -309,7 +321,7 @@ const ProductFormDialog = ({ open, onClose, onSaved, editProduct, defaultCategor
 
         {tab === 0 && (
         <Box className="row g-3">
-          <Box className="col-12 col-sm-8">
+          <Box className="col-12 col-sm-6">
             <TextField
               label="Product Name"
               name="name"
@@ -318,6 +330,17 @@ const ProductFormDialog = ({ open, onClose, onSaved, editProduct, defaultCategor
               fullWidth
               required
               disabled={uploading}
+            />
+          </Box>
+          <Box className="col-12 col-sm-6">
+            <TextField
+              label="URL Slug"
+              name="slug"
+              value={form.slug}
+              onChange={handleChange}
+              fullWidth
+              disabled={uploading}
+              helperText="Auto-generated but can be customized"
             />
           </Box>
           <Box className="col-12 col-sm-4">
@@ -504,6 +527,7 @@ const GemstoneFormDialog = ({ open, onClose, onSaved, editGemstone }) => {
     if (editGemstone) {
       setForm({
         name: editGemstone.name || '',
+        slug: editGemstone.slug || '',
         nameSi: editGemstone.nameSi || '',
         imageUrl: '',
         description: editGemstone.description || '',
@@ -538,7 +562,13 @@ const GemstoneFormDialog = ({ open, onClose, onSaved, editGemstone }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      const nextForm = { ...prev, [name]: value };
+      if (name === 'name' && (prev.slug === '' || prev.slug === generateSlug(prev.name))) {
+        nextForm.slug = generateSlug(value);
+      }
+      return nextForm;
+    });
   };
 
   const handleFilesAdded = (files) => {
@@ -617,6 +647,7 @@ const GemstoneFormDialog = ({ open, onClose, onSaved, editGemstone }) => {
 
       const payload = {
         name: form.name,
+        slug: form.slug,
         nameSi: form.nameSi,
         description: form.description,
         descriptionSi: form.descriptionSi,
@@ -696,7 +727,7 @@ const GemstoneFormDialog = ({ open, onClose, onSaved, editGemstone }) => {
 
         {tab === 0 && (
         <Box className="row g-3">
-          <Box className="col-12 col-sm-7">
+          <Box className="col-12 col-sm-4">
             <TextField
               label="Gem Name (English)"
               name="name"
@@ -707,7 +738,17 @@ const GemstoneFormDialog = ({ open, onClose, onSaved, editGemstone }) => {
               disabled={saving}
             />
           </Box>
-          <Box className="col-12 col-sm-5">
+          <Box className="col-12 col-sm-4">
+            <TextField
+              label="URL Slug"
+              name="slug"
+              value={form.slug}
+              onChange={handleChange}
+              fullWidth
+              disabled={saving}
+            />
+          </Box>
+          <Box className="col-12 col-sm-4">
             <TextField
               select
               label="Status"
@@ -1079,6 +1120,7 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
   const [editProduct, setEditProduct] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [search, setSearch] = useState('');
+  const [migrating, setMigrating] = useState(false);
 
   // Gemstones state
   const [gemstones, setGemstones] = useState([]);
@@ -1210,6 +1252,26 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
           >
             {mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
           </IconButton>
+          <Button
+            onClick={async () => {
+              try {
+                if (!window.confirm("Are you sure you want to run the database migration? This will move all items from 'products' to 'gems' and 'jewellery'.")) return;
+                setMigrating(true);
+                const count = await migrateProductsCollection();
+                showSnackbar(`Migrated ${count || 0} products successfully!`, 'success');
+                fetchProducts();
+              } catch (e) {
+                showSnackbar(`Migration failed: ${e.message}`, 'error');
+              } finally {
+                setMigrating(false);
+              }
+            }}
+            size="small"
+            disabled={migrating}
+            sx={{ color: 'text.secondary', '&:hover': { color: 'warning.light' }, fontSize: '0.75rem' }}
+          >
+            {migrating ? 'Migrating...' : 'Migrate DB'}
+          </Button>
           <Button
             startIcon={<LogoutIcon />}
             onClick={onLogout}

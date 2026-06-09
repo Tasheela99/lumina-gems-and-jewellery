@@ -117,7 +117,8 @@ const toReadableFirebaseError = (error) => {
 };
 
 // ── Firestore collection reference ─────────────────────────────────────────
-const PRODUCTS_COLLECTION = 'products';
+const GEMS_SHOP_COLLECTION = 'gems';
+const JEWELRY_COLLECTION = 'jewellery';
 const STORAGE_FOLDER = 'products/';
 
 // Gemstone learning module
@@ -217,13 +218,14 @@ const deleteImageByUrl = async (url) => {
 // ─────────────────────────────────────────────
 export const addProduct = async (data, imageFiles = []) => {
   try {
-    // Upload all images in parallel
     const imageResults = await Promise.all(imageFiles.map((f) => uploadImage(f)));
     const imageUrls = imageResults.map((r) => r.url);
 
-    const docRef = await addDoc(collection(db, PRODUCTS_COLLECTION), {
+    const targetCollection = data.category === 'Gem' ? GEMS_SHOP_COLLECTION : JEWELRY_COLLECTION;
+
+    const docRef = await addDoc(collection(db, targetCollection), {
       ...data,
-      slug: generateSlug(data.name),
+      slug: data.slug || generateSlug(data.name),
       price: Number(data.price),
       stock: Number(data.stock),
       images: imageUrls,
@@ -244,41 +246,25 @@ export const addProduct = async (data, imageFiles = []) => {
 // ─────────────────────────────────────────────
 export const getProducts = async (category = null) => {
   try {
-    let q;
-    if (category) {
-      try {
-        q = query(
-          collection(db, PRODUCTS_COLLECTION),
-          where('category', '==', category),
-          orderBy('createdAt', 'desc')
-        );
-
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      } catch (error) {
-        if (!isIndexPreconditionError(error)) {
-          throw error;
-        }
-
-        // Fallback when the category+createdAt composite index is not ready.
-        const fallbackQuery = query(
-          collection(db, PRODUCTS_COLLECTION),
-          where('category', '==', category)
-        );
-        const fallbackSnapshot = await getDocs(fallbackQuery);
-        return sortByCreatedAtDesc(
-          fallbackSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
-        );
-      }
+    if (category === 'Gem') {
+      const q = query(collection(db, GEMS_SHOP_COLLECTION), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    } else if (category === 'Jewelry') {
+      const q = query(collection(db, JEWELRY_COLLECTION), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
     } else {
-      q = query(
-        collection(db, PRODUCTS_COLLECTION),
-        orderBy('createdAt', 'desc')
-      );
+      const [gemsSnap, jewelrySnap] = await Promise.all([
+        getDocs(query(collection(db, GEMS_SHOP_COLLECTION), orderBy('createdAt', 'desc'))),
+        getDocs(query(collection(db, JEWELRY_COLLECTION), orderBy('createdAt', 'desc')))
+      ]);
+      const items = [
+        ...gemsSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        ...jewelrySnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      ];
+      return sortByCreatedAtDesc(items);
     }
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (error) {
     console.error('getProducts error:', error);
     throw toReadableFirebaseError(error);
@@ -290,28 +276,31 @@ export const getProducts = async (category = null) => {
 // ─────────────────────────────────────────────
 export const getFeaturedProducts = async () => {
   try {
+    let gemsDocs = [];
+    let jewelryDocs = [];
+    
     try {
-      const q = query(
-        collection(db, PRODUCTS_COLLECTION),
-        where('featured', '==', true),
-        orderBy('createdAt', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-    } catch (error) {
-      if (!isIndexPreconditionError(error)) {
-        throw error;
-      }
-
-      const fallbackQuery = query(
-        collection(db, PRODUCTS_COLLECTION),
-        where('featured', '==', true)
-      );
-      const fallbackSnapshot = await getDocs(fallbackQuery);
-      return sortByCreatedAtDesc(
-        fallbackSnapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
-      );
+      const [gemsSnap, jewelrySnap] = await Promise.all([
+        getDocs(query(collection(db, GEMS_SHOP_COLLECTION), where('featured', '==', true), orderBy('createdAt', 'desc'))),
+        getDocs(query(collection(db, JEWELRY_COLLECTION), where('featured', '==', true), orderBy('createdAt', 'desc')))
+      ]);
+      gemsDocs = gemsSnap.docs;
+      jewelryDocs = jewelrySnap.docs;
+    } catch (e) {
+      if (!isIndexPreconditionError(e)) throw e;
+      const [gemsSnap, jewelrySnap] = await Promise.all([
+        getDocs(query(collection(db, GEMS_SHOP_COLLECTION), where('featured', '==', true))),
+        getDocs(query(collection(db, JEWELRY_COLLECTION), where('featured', '==', true)))
+      ]);
+      gemsDocs = gemsSnap.docs;
+      jewelryDocs = jewelrySnap.docs;
     }
+
+    const items = [
+      ...gemsDocs.map((d) => ({ id: d.id, ...d.data() })),
+      ...jewelryDocs.map((d) => ({ id: d.id, ...d.data() }))
+    ];
+    return sortByCreatedAtDesc(items);
   } catch (error) {
     console.error('getFeaturedProducts error:', error);
     throw toReadableFirebaseError(error);
@@ -323,10 +312,15 @@ export const getFeaturedProducts = async () => {
 // ─────────────────────────────────────────────
 export const getProductById = async (id) => {
   try {
-    const docRef = doc(db, PRODUCTS_COLLECTION, id);
-    const snapshot = await getDoc(docRef);
-    if (!snapshot.exists()) return null;
-    return { id: snapshot.id, ...snapshot.data() };
+    let docRef = doc(db, GEMS_SHOP_COLLECTION, id);
+    let snapshot = await getDoc(docRef);
+    if (snapshot.exists()) return { id: snapshot.id, ...snapshot.data() };
+
+    docRef = doc(db, JEWELRY_COLLECTION, id);
+    snapshot = await getDoc(docRef);
+    if (snapshot.exists()) return { id: snapshot.id, ...snapshot.data() };
+
+    return null;
   } catch (error) {
     console.error('getProductById error:', error);
     throw toReadableFirebaseError(error);
@@ -338,14 +332,14 @@ export const getProductById = async (id) => {
 // ─────────────────────────────────────────────
 export const getProductBySlugOrId = async (slugOrId) => {
   try {
-    // Try slug first
-    const q = query(collection(db, PRODUCTS_COLLECTION), where('slug', '==', slugOrId), limit(1));
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
-      const docSnap = snapshot.docs[0];
-      return { id: docSnap.id, ...docSnap.data() };
-    }
-    // Fallback to ID
+    let q = query(collection(db, GEMS_SHOP_COLLECTION), where('slug', '==', slugOrId), limit(1));
+    let snapshot = await getDocs(q);
+    if (!snapshot.empty) return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+
+    q = query(collection(db, JEWELRY_COLLECTION), where('slug', '==', slugOrId), limit(1));
+    snapshot = await getDocs(q);
+    if (!snapshot.empty) return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+
     return await getProductById(slugOrId);
   } catch (error) {
     console.error('getProductBySlugOrId error:', error);
@@ -362,31 +356,42 @@ export const getProductBySlugOrId = async (slugOrId) => {
 // ─────────────────────────────────────────────
 export const updateProduct = async (id, data, newImageFiles = [], removedImageUrls = []) => {
   try {
-    // Delete removed images from storage
+    const existingProduct = await getProductById(id);
+    if (!existingProduct) throw new Error("Product not found");
+
     if (removedImageUrls.length > 0) {
       await Promise.all(removedImageUrls.map(deleteImageByUrl));
     }
 
-    // Upload new images
     let newUrls = [];
     if (newImageFiles.length > 0) {
       const results = await Promise.all(newImageFiles.map((f) => uploadImage(f)));
       newUrls = results.map((r) => r.url);
     }
 
-    const docRef = doc(db, PRODUCTS_COLLECTION, id);
-    const currentImages = (data.images || []).filter(
+    const currentCollection = existingProduct.category === 'Gem' ? GEMS_SHOP_COLLECTION : JEWELRY_COLLECTION;
+    const newCategory = data.category || existingProduct.category;
+    const newCollection = newCategory === 'Gem' ? GEMS_SHOP_COLLECTION : JEWELRY_COLLECTION;
+
+    const currentImages = (data.images || existingProduct.images || []).filter(
       (url) => !removedImageUrls.includes(url)
     );
 
-    await updateDoc(docRef, {
+    const updateData = {
       ...data,
-      ...(data.name && { slug: generateSlug(data.name) }),
-      price: Number(data.price),
-      stock: Number(data.stock),
+      ...(data.slug ? { slug: data.slug } : (data.name && { slug: generateSlug(data.name) })),
+      price: Number(data.price !== undefined ? data.price : existingProduct.price),
+      stock: Number(data.stock !== undefined ? data.stock : existingProduct.stock),
       images: [...currentImages, ...newUrls],
       updatedAt: serverTimestamp(),
-    });
+    };
+
+    if (currentCollection !== newCollection) {
+      await deleteDoc(doc(db, currentCollection, id));
+      await setDoc(doc(db, newCollection, id), { ...existingProduct, ...updateData, category: newCategory });
+    } else {
+      await updateDoc(doc(db, currentCollection, id), updateData);
+    }
 
     return { success: true };
   } catch (error) {
@@ -402,12 +407,15 @@ export const updateProduct = async (id, data, newImageFiles = [], removedImageUr
 // ─────────────────────────────────────────────
 export const deleteProduct = async (id, imageUrls = []) => {
   try {
-    // Remove images from storage first
+    const existingProduct = await getProductById(id);
+    if (!existingProduct) return { success: true };
+
     if (imageUrls.length > 0) {
       await Promise.all(imageUrls.map(deleteImageByUrl));
     }
 
-    await deleteDoc(doc(db, PRODUCTS_COLLECTION, id));
+    const collectionName = existingProduct.category === 'Gem' ? GEMS_SHOP_COLLECTION : JEWELRY_COLLECTION;
+    await deleteDoc(doc(db, collectionName, id));
     return { success: true };
   } catch (error) {
     console.error('deleteProduct error:', error);
@@ -459,7 +467,7 @@ const normalizeGemstonePayload = (data) => {
     seoKeywords: String(data?.seoKeywords || '').trim(),
     ogTitle: String(data?.ogTitle || '').trim(),
     ogDescription: String(data?.ogDescription || '').trim(),
-    slug: generateSlug(name),
+    slug: data?.slug ? String(data.slug).trim() : generateSlug(name),
   };
 };
 
@@ -579,11 +587,17 @@ export const updateGemstone = async (id, data, newImageFiles = [], removedImageU
   try {
     const patch = {};
 
+    if (data && Object.prototype.hasOwnProperty.call(data, 'slug') && data.slug) {
+      patch.slug = data.slug;
+    } else if (data && Object.prototype.hasOwnProperty.call(data, 'name')) {
+      const name = String(data.name || '').trim();
+      patch.slug = generateSlug(name);
+    }
+
     if (data && Object.prototype.hasOwnProperty.call(data, 'name')) {
       const name = String(data.name || '').trim();
       patch.name = name;
       patch.nameLower = name.toLowerCase();
-      patch.slug = generateSlug(name);
     }
 
     if (data && Object.prototype.hasOwnProperty.call(data, 'nameSi')) {
