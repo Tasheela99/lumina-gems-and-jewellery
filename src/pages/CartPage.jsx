@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 // src/pages/CartPage.jsx
 import AddIcon from '@mui/icons-material/Add';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -17,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from '../components/SnackbarAlert';
 import { useCart } from '../context/CartContext';
 import { formatCurrency } from '../utils/formatCurrency';
+import { updateSEO } from '../utils/seo';
 
 // ── Single cart row ──────────────────────────────────────────────────────────
 const CartItem = ({ item, onRemove, onQtyChange }) => (
@@ -159,6 +161,13 @@ const CartItem = ({ item, onRemove, onQtyChange }) => (
 
 // ── Order Summary ────────────────────────────────────────────────────────────
 const OrderSummary = ({ subtotal, count, onCheckout, onClear }) => {
+  useEffect(() => {
+    updateSEO({
+      title: 'Your Cart | Lumina Gems and Jewellery',
+      description: 'Review your selected gems and jewelry items before secure checkout.'
+    });
+  }, []);
+
   const shipping = 0; // Free shipping
   const total = subtotal + shipping;
 

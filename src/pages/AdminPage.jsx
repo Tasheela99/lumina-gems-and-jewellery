@@ -1253,26 +1253,6 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
             {mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
           </IconButton>
           <Button
-            onClick={async () => {
-              try {
-                if (!window.confirm("Are you sure you want to run the database migration? This will move all items from 'products' to 'gems' and 'jewellery'.")) return;
-                setMigrating(true);
-                const count = await migrateProductsCollection();
-                showSnackbar(`Migrated ${count || 0} products successfully!`, 'success');
-                fetchProducts();
-              } catch (e) {
-                showSnackbar(`Migration failed: ${e.message}`, 'error');
-              } finally {
-                setMigrating(false);
-              }
-            }}
-            size="small"
-            disabled={migrating}
-            sx={{ color: 'text.secondary', '&:hover': { color: 'warning.light' }, fontSize: '0.75rem' }}
-          >
-            {migrating ? 'Migrating...' : 'Migrate DB'}
-          </Button>
-          <Button
             startIcon={<LogoutIcon />}
             onClick={onLogout}
             size="small"
@@ -1373,14 +1353,36 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
                   startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'text.secondary', fontSize: 18 }} /></InputAdornment>,
                 }}
               />
-              <Button
-                variant="contained"
-                color="secondary"
-                startIcon={<AddIcon />}
-                onClick={handleAdd}
-              >
-                Add Product
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button
+                  onClick={async () => {
+                    try {
+                      if (!window.confirm("Are you sure you want to run the database migration? This will move all items from 'products' to 'gems' and 'jewellery'.")) return;
+                      setMigrating(true);
+                      const count = await migrateProductsCollection();
+                      showSnackbar(`Migrated ${count || 0} products successfully!`, 'success');
+                      fetchProducts();
+                    } catch (e) {
+                      showSnackbar(`Migration failed: ${e.message}`, 'error');
+                    } finally {
+                      setMigrating(false);
+                    }
+                  }}
+                  variant="outlined"
+                  color="warning"
+                  disabled={migrating}
+                >
+                  {migrating ? 'Migrating...' : 'Migrate DB'}
+                </Button>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  startIcon={<AddIcon />}
+                  onClick={handleAdd}
+                >
+                  Add Product
+                </Button>
+              </Box>
             </Box>
 
             {/* Table */}

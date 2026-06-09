@@ -4,8 +4,16 @@ import { Box, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import ProductGrid from '../components/ProductGrid';
 import { getProducts } from '../services/firebase';
+import { updateSEO } from '../utils/seo';
 
 const JewelryPage = () => {
+  useEffect(() => {
+    updateSEO({
+      title: 'Shop Jewelry | Lumina Gems and Jewellery',
+      description: 'Explore handcrafted fine jewelry from Lumina. Elegant necklaces, rings, and earrings designed for brilliance.'
+    });
+  }, []);
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

@@ -1,8 +1,10 @@
 // src/pages/AboutPage.jsx
+import { useEffect } from 'react';
 import DiamondIcon from '@mui/icons-material/Diamond';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import HandshakeIcon from '@mui/icons-material/Handshake';
 import PublicIcon from '@mui/icons-material/Public';
+import { updateSEO } from '../utils/seo';
 import {
     Avatar,
     Box,
@@ -48,7 +50,15 @@ const ValueCard = ({ icon, title, desc }) => (
   </Box>
 );
 
-const AboutPage = () => (
+const AboutPage = () => {
+  useEffect(() => {
+    updateSEO({
+      title: 'About Us | Lumina Gems and Jewellery',
+      description: 'Learn about the heritage, craftsmanship, and ethical sourcing behind Lumina Gems and Jewellery.'
+    });
+  }, []);
+
+  return (
   <Box>
     {/* Hero */}
     <Box
@@ -207,6 +217,7 @@ const AboutPage = () => (
       </Typography>
     </Box>
   </Box>
-);
+  );
+};
 
 export default AboutPage;

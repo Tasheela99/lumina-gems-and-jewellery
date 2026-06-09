@@ -12,7 +12,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
+import { useEffect,  useState  } from 'react';
+import { updateSEO } from '../utils/seo';
 
 const INQUIRY_TYPES = [
   { value: 'general', label: 'General Inquiry' },
@@ -23,6 +24,13 @@ const INQUIRY_TYPES = [
 ];
 
 const ContactPage = () => {
+  useEffect(() => {
+    updateSEO({
+      title: 'Contact Us | Lumina Gems and Jewellery',
+      description: 'Get in touch with Lumina Gems and Jewellery for inquiries, custom designs, and support.'
+    });
+  }, []);
+
   const [form, setForm] = useState({
     name: '',
     email: '',

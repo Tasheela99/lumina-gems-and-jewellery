@@ -13,6 +13,7 @@ import EmptyState from '../components/EmptyState';
 import GemstoneCard from '../components/GemstoneCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getGemstones } from '../services/firebase';
+import { updateSEO } from '../utils/seo';
 import {
     BIRTHSTONES_BY_MONTH,
     GEMSTONE_CATEGORIES,
@@ -20,6 +21,13 @@ import {
 } from '../utils/constants';
 
 const GemstoneGuidePage = () => {
+  useEffect(() => {
+    updateSEO({
+      title: 'Gemstone Guide | Lumina Gems and Jewellery',
+      description: 'Learn about gemstone properties, meanings, and origins with our comprehensive Gemstone Guide.'
+    });
+  }, []);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [gemstones, setGemstones] = useState([]);

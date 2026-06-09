@@ -14,9 +14,17 @@ import CategoryBanner from "../components/CategoryBanner";
 import LoadingSpinner from "../components/LoadingSpinner";
 import ProductCard from "../components/ProductCard";
 import { getProducts, getCollections } from "../services/firebase";
+import { updateSEO } from '../utils/seo';
 
 // ── Shared Section Title ──────────────────────────────────────────────────────
 const SectionTitle = ({ overline, title, subtitle }) => {
+  useEffect(() => {
+    updateSEO({
+      title: 'Lumina Gems and Jewellery | Home',
+      description: 'Welcome to Lumina Gems and Jewellery. Discover our exclusive collection of luxury gems and fine jewelry.'
+    });
+  }, []);
+
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   return (

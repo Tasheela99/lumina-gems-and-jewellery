@@ -4,8 +4,16 @@ import { useEffect, useState } from 'react';
 import CollectionCard from '../components/CollectionCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getCollections } from '../services/firebase';
+import { updateSEO } from '../utils/seo';
 
 const CollectionsPage = () => {
+  useEffect(() => {
+    updateSEO({
+      title: 'Collections | Lumina Gems and Jewellery',
+      description: 'Discover curated luxury jewelry collections by Lumina Gems and Jewellery.'
+    });
+  }, []);
+
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(true);
 

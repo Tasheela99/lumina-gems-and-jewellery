@@ -4,8 +4,16 @@ import { Box, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import ProductGrid from '../components/ProductGrid';
 import { getProducts } from '../services/firebase';
+import { updateSEO } from '../utils/seo';
 
 const GemsPage = () => {
+  useEffect(() => {
+    updateSEO({
+      title: 'Shop Gems | Lumina Gems and Jewellery',
+      description: 'Browse our collection of ethically sourced, brilliant loose gemstones. Find the perfect sapphire, ruby, or emerald.'
+    });
+  }, []);
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
