@@ -56,12 +56,14 @@ import {
   getProducts,
   updateGemstone,
   updateProduct,
+  auth,
+  loginWithGoogle,
+  logoutAdmin,
 } from '../services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import CollectionManager from '../components/admin/CollectionManager';
 import { CATEGORY_OPTIONS, GEMSTONE_CATEGORIES, GEMSTONE_MONTHS, GEMSTONE_STATUS_OPTIONS } from '../utils/constants';
 import { formatCurrency } from '../utils/formatCurrency';
-
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'gems2024admin';
 
 // ── Empty form state ─────────────────────────────────────────────────────────
 const emptyForm = {
@@ -950,20 +952,27 @@ const DeleteGemstoneDialog = ({ open, onClose, onConfirm, gemName }) => (
 );
 
 // ─────────────────────────────────────────────
-// PASSWORD GATE
+// AUTH GATE
 // ─────────────────────────────────────────────
-const PasswordGate = ({ onUnlock, mode, onToggleColorMode }) => {
-  const [input, setInput] = useState('');
-  const [error, setError] = useState(false);
+const AuthGate = ({ onUnlock, mode, onToggleColorMode }) => {
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (input === ADMIN_PASSWORD) {
-      sessionStorage.setItem('admin_unlocked', 'true');
-      onUnlock();
-    } else {
-      setError(true);
-      setInput('');
+  const handleLogin = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const user = await loginWithGoogle();
+      if (user.email === 'tasheelajay1999@gmail.com') {
+        onUnlock(user);
+      } else {
+        await logoutAdmin();
+        setError('Access Denied. You are not authorized as an admin.');
+      }
+    } catch (err) {
+      setError('Authentication failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -981,8 +990,6 @@ const PasswordGate = ({ onUnlock, mode, onToggleColorMode }) => {
       })}
     >
       <Box
-        component="form"
-        onSubmit={handleSubmit}
         sx={{
           width: '100%',
           maxWidth: 380,
@@ -1001,22 +1008,24 @@ const PasswordGate = ({ onUnlock, mode, onToggleColorMode }) => {
           Admin Access
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Enter the admin password to continue
+          Sign in securely using Google to continue
         </Typography>
 
-        <TextField
-          type="password"
-          label="Password"
-          value={input}
-          onChange={(e) => { setInput(e.target.value); setError(false); }}
-          error={error}
-          helperText={error ? 'Incorrect password' : ''}
-          fullWidth
-          autoFocus
-          sx={{ mb: 2.5 }}
-        />
-        <Button type="submit" variant="contained" color="secondary" fullWidth size="large">
-          Unlock Admin Panel
+        {error && (
+          <Typography variant="body2" color="error" sx={{ mb: 2 }}>
+            {error}
+          </Typography>
+        )}
+
+        <Button 
+          variant="contained" 
+          color="secondary" 
+          fullWidth 
+          size="large" 
+          onClick={handleLogin}
+          disabled={loading}
+        >
+          {loading ? 'Authenticating...' : 'Sign in with Google'}
         </Button>
         <Button
           type="button"
@@ -1781,17 +1790,36 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
 // ADMIN PAGE — root component
 // ─────────────────────────────────────────────
 const AdminPage = ({ mode = 'dark', onToggleColorMode = () => {} }) => {
-  const [unlocked, setUnlocked] = useState(() =>
-    sessionStorage.getItem('admin_unlocked') === 'true'
-  );
+  const [unlocked, setUnlocked] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('admin_unlocked');
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && user.email === 'tasheelajay1999@gmail.com') {
+        setUnlocked(true);
+      } else {
+        setUnlocked(false);
+      }
+      setAuthChecking(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await logoutAdmin();
     setUnlocked(false);
   };
 
+  if (authChecking) {
+    return (
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <LoadingSpinner />
+      </Box>
+    );
+  }
+
   if (!unlocked) {
-    return <PasswordGate onUnlock={() => setUnlocked(true)} mode={mode} onToggleColorMode={onToggleColorMode} />;
+    return <AuthGate onUnlock={() => setUnlocked(true)} mode={mode} onToggleColorMode={onToggleColorMode} />;
   }
 
   return <AdminDashboard onLogout={handleLogout} mode={mode} onToggleColorMode={onToggleColorMode} />;

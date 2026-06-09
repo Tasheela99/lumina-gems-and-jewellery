@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────
 
 import { initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import {
   addDoc,
   collection,
@@ -56,6 +57,28 @@ const app = initializeApp(firebaseConfig);
 const databaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID;
 export const db = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
 export const storage = getStorage(app);
+
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+
+export const loginWithGoogle = async () => {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (error) {
+    console.error('Google sign-in error:', error);
+    throw toReadableFirebaseError(error);
+  }
+};
+
+export const logoutAdmin = async () => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error('Sign-out error:', error);
+    throw error;
+  }
+};
 
 const toReadableFirebaseError = (error) => {
   const projectId = firebaseConfig.projectId || 'your-project-id';
