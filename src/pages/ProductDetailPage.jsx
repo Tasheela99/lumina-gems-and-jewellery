@@ -20,12 +20,12 @@ import ImageGallery from '../components/ImageGallery';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useSnackbar } from '../components/SnackbarAlert';
 import { useCart } from '../context/CartContext';
-import { getProductById } from '../services/firebase';
+import { getProductBySlugOrId } from '../services/firebase';
 import { formatCurrency } from '../utils/formatCurrency';
 import { updateSEO } from '../utils/seo';
 
 const ProductDetailPage = () => {
-  const { id } = useParams();
+  const { slug } = useParams();
   const navigate = useNavigate();
   const { addToCart, isInCart } = useCart();
   const { showSnackbar } = useSnackbar();
@@ -37,7 +37,7 @@ const ProductDetailPage = () => {
   useEffect(() => {
     (async () => {
       try {
-        const data = await getProductById(id);
+        const data = await getProductBySlugOrId(slug);
         if (!data) { setNotFound(true); return; }
         setProduct(data);
         
@@ -56,7 +56,7 @@ const ProductDetailPage = () => {
         setLoading(false);
       }
     })();
-  }, [id]);
+  }, [slug]);
 
   if (loading) return <Box sx={{ pt: 12 }}><LoadingSpinner /></Box>;
 

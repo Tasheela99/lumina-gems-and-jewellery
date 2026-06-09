@@ -38,7 +38,7 @@ const ProductCard = ({ product, hidePrice = false, hideActions = false }) => {
   return (
     <Card
       className="h-100 d-flex flex-column"
-      onClick={() => navigate(`/product/${product.id}`)}
+      onClick={() => navigate(`/product/${product.slug || product.id}`)}
       sx={(theme) => ({
         cursor: 'pointer',
         height: '100%',
@@ -194,7 +194,7 @@ const ProductCard = ({ product, hidePrice = false, hideActions = false }) => {
           size="small"
           variant="outlined"
           fullWidth
-          onClick={(e) => { e.stopPropagation(); navigate(`/product/${product.id}`); }}
+          onClick={(e) => { e.stopPropagation(); navigate(`/product/${product.slug || product.id}`); }}
           sx={(theme) => ({
             fontSize: '0.7rem',
             py: 0.8,

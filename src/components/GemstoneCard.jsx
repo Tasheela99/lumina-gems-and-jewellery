@@ -154,7 +154,7 @@ const GemstoneCard = ({ gemstone, language = 'en' }) => {
         <Button
           size="small"
           component={RouterLink}
-          to={gemstone?.id ? `/gemstone-guide/${gemstone.id}` : '/gemstone-guide'}
+          to={gemstone?.id ? `/gemstone-guide/${gemstone.slug || gemstone.id}` : '/gemstone-guide'}
           sx={{
             fontSize: '0.72rem',
             letterSpacing: '0.06em',

@@ -141,6 +141,17 @@ const isIndexPreconditionError = (error) => {
   return error?.code === 'failed-precondition' || message.includes('index');
 };
 
+// ── Helper: Slug Generation ──────────────────────────────────────────────────
+export const generateSlug = (text) => {
+  if (!text) return '';
+  return text.toString().toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\-]+/g, '')
+    .replace(/\-\-+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+};
+
 // ── Helper: Upload a single image file → returns download URL ───────────────
 const uploadImage = (file, onProgress) => {
   return new Promise((resolve, reject) => {
@@ -212,6 +223,7 @@ export const addProduct = async (data, imageFiles = []) => {
 
     const docRef = await addDoc(collection(db, PRODUCTS_COLLECTION), {
       ...data,
+      slug: generateSlug(data.name),
       price: Number(data.price),
       stock: Number(data.stock),
       images: imageUrls,
@@ -322,6 +334,26 @@ export const getProductById = async (id) => {
 };
 
 // ─────────────────────────────────────────────
+// GET PRODUCT BY SLUG OR ID
+// ─────────────────────────────────────────────
+export const getProductBySlugOrId = async (slugOrId) => {
+  try {
+    // Try slug first
+    const q = query(collection(db, PRODUCTS_COLLECTION), where('slug', '==', slugOrId), limit(1));
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      const docSnap = snapshot.docs[0];
+      return { id: docSnap.id, ...docSnap.data() };
+    }
+    // Fallback to ID
+    return await getProductById(slugOrId);
+  } catch (error) {
+    console.error('getProductBySlugOrId error:', error);
+    throw toReadableFirebaseError(error);
+  }
+};
+
+// ─────────────────────────────────────────────
 // UPDATE PRODUCT
 // id: string
 // data: partial product fields
@@ -349,6 +381,7 @@ export const updateProduct = async (id, data, newImageFiles = [], removedImageUr
 
     await updateDoc(docRef, {
       ...data,
+      ...(data.name && { slug: generateSlug(data.name) }),
       price: Number(data.price),
       stock: Number(data.stock),
       images: [...currentImages, ...newUrls],
@@ -426,6 +459,7 @@ const normalizeGemstonePayload = (data) => {
     seoKeywords: String(data?.seoKeywords || '').trim(),
     ogTitle: String(data?.ogTitle || '').trim(),
     ogDescription: String(data?.ogDescription || '').trim(),
+    slug: generateSlug(name),
   };
 };
 
@@ -518,6 +552,24 @@ export const getGemstoneById = async (id) => {
   }
 };
 
+// Get gemstone by slug or ID
+export const getGemstoneBySlugOrId = async (slugOrId) => {
+  try {
+    // Try slug first
+    const q = query(collection(db, GEMSTONES_COLLECTION), where('slug', '==', slugOrId), limit(1));
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      const docSnap = snapshot.docs[0];
+      return { id: docSnap.id, ...docSnap.data() };
+    }
+    // Fallback to ID
+    return await getGemstoneById(slugOrId);
+  } catch (error) {
+    console.error('getGemstoneBySlugOrId error:', error);
+    throw toReadableFirebaseError(error);
+  }
+};
+
 // Update gemstone
 // id: string
 // data: partial fields
@@ -531,6 +583,7 @@ export const updateGemstone = async (id, data, newImageFiles = [], removedImageU
       const name = String(data.name || '').trim();
       patch.name = name;
       patch.nameLower = name.toLowerCase();
+      patch.slug = generateSlug(name);
     }
 
     if (data && Object.prototype.hasOwnProperty.call(data, 'nameSi')) {

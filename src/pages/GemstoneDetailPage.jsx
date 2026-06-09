@@ -16,11 +16,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import ImageGallery from '../components/ImageGallery';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { getGemstoneById } from '../services/firebase';
+import { getGemstoneBySlugOrId } from '../services/firebase';
 import { updateSEO } from '../utils/seo';
 
 const GemstoneDetailPage = () => {
-  const { id } = useParams();
+  const { slug } = useParams();
   const navigate = useNavigate();
 
   const [language, setLanguage] = useState(() => {
@@ -57,7 +57,7 @@ const GemstoneDetailPage = () => {
       setLoading(true);
       setNotFound(false);
       try {
-        const data = await getGemstoneById(id);
+        const data = await getGemstoneBySlugOrId(slug);
         if (!data) {
           setNotFound(true);
           return;
@@ -70,7 +70,7 @@ const GemstoneDetailPage = () => {
         setLoading(false);
       }
     })();
-  }, [id]);
+  }, [slug]);
 
   useEffect(() => {
     const name = getLocalized(gemstone, 'name');

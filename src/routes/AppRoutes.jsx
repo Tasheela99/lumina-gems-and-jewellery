@@ -69,7 +69,7 @@ const AppRoutes = ({ mode, onToggleColorMode }) => (
       }
     />
     <Route
-      path="/gemstone-guide/:id"
+      path="/gemstone-guide/:slug"
       element={
         <MainLayout mode={mode} onToggleColorMode={onToggleColorMode}>
           <GemstoneDetailPage />
@@ -77,7 +77,7 @@ const AppRoutes = ({ mode, onToggleColorMode }) => (
       }
     />
     <Route
-      path="/product/:id"
+      path="/product/:slug"
       element={
         <MainLayout mode={mode} onToggleColorMode={onToggleColorMode}>
           <ProductDetailPage />
