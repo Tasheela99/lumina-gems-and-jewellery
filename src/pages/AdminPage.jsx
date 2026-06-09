@@ -1,0 +1,1800 @@
+// src/pages/AdminPage.jsx
+// ─────────────────────────────────────────────
+// Admin dashboard — password-gated CRUD for products.
+// Password is set in .env as VITE_ADMIN_PASSWORD.
+// ─────────────────────────────────────────────
+
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import DeleteIcon from '@mui/icons-material/Delete';
+import DiamondIcon from '@mui/icons-material/Diamond';
+import EditIcon from '@mui/icons-material/Edit';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import LockIcon from '@mui/icons-material/Lock';
+import LogoutIcon from '@mui/icons-material/Logout';
+import SearchIcon from '@mui/icons-material/Search';
+import {
+  Avatar,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  IconButton,
+  InputAdornment,
+  LinearProgress,
+  MenuItem,
+  Paper,
+  Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tabs,
+  Tab,
+  TextField,
+  Tooltip,
+  Typography
+} from '@mui/material';
+import { useCallback, useEffect, useState } from 'react';
+import { useDropzone } from 'react-dropzone';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { useSnackbar } from '../components/SnackbarAlert';
+import {
+  addGemstone,
+  addProduct,
+  deleteGemstone,
+  deleteProduct,
+  getGemstonesPage,
+  getProducts,
+  updateGemstone,
+  updateProduct,
+} from '../services/firebase';
+import CollectionManager from '../components/admin/CollectionManager';
+import { CATEGORY_OPTIONS, GEMSTONE_CATEGORIES, GEMSTONE_MONTHS, GEMSTONE_STATUS_OPTIONS } from '../utils/constants';
+import { formatCurrency } from '../utils/formatCurrency';
+
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'gems2024admin';
+
+// ── Empty form state ─────────────────────────────────────────────────────────
+const emptyForm = {
+  name: '',
+  category: 'Gem',
+  price: '',
+  description: '',
+  stock: '',
+  featured: false,
+  seoTitle: '',
+  seoDescription: '',
+  seoKeywords: '',
+  ogTitle: '',
+  ogDescription: '',
+};
+
+const emptyGemstoneForm = {
+  name: '',
+  nameSi: '',
+  imageUrl: '',
+  description: '',
+  descriptionSi: '',
+  benefits: '',
+  benefitsSi: '',
+  month: '',
+  category: GEMSTONE_CATEGORIES[0] || 'Precious',
+  status: 'Active',
+  seoTitle: '',
+  seoDescription: '',
+  seoKeywords: '',
+  ogTitle: '',
+  ogDescription: '',
+};
+
+// ─────────────────────────────────────────────
+// IMAGE DROPZONE COMPONENT
+// ─────────────────────────────────────────────
+const ImageDropzone = ({ onFilesAdded, existingImages = [], onRemoveExisting }) => {
+  const onDrop = useCallback((accepted) => {
+    onFilesAdded(accepted);
+  }, [onFilesAdded]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'image/*': [] },
+    multiple: true,
+  });
+
+  return (
+    <Box>
+      <Box
+        {...getRootProps()}
+        sx={{
+          border: '2px dashed',
+          borderColor: isDragActive ? 'secondary.main' : 'rgba(255,255,255,0.12)',
+          borderRadius: 2,
+          p: 3,
+          textAlign: 'center',
+          cursor: 'pointer',
+          bgcolor: isDragActive ? 'rgba(201,168,76,0.05)' : 'rgba(255,255,255,0.02)',
+          transition: 'all 0.2s ease',
+          '&:hover': {
+            borderColor: 'rgba(201,168,76,0.4)',
+            bgcolor: 'rgba(201,168,76,0.04)',
+          },
+        }}
+      >
+        <input {...getInputProps()} />
+        <CloudUploadIcon sx={{ fontSize: 36, color: 'text.secondary', mb: 1 }} />
+        <Typography variant="body2" color="text.secondary">
+          {isDragActive ? 'Drop images here...' : 'Drag & drop images, or click to select'}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
+          PNG, JPG, WEBP — multiple files supported
+        </Typography>
+      </Box>
+
+      {/* Existing images with remove */}
+      {existingImages.length > 0 && (
+        <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {existingImages.map((url, i) => (
+            <Box key={i} sx={{ position: 'relative' }}>
+              <Box
+                component="img"
+                src={url}
+                alt={`img-${i}`}
+                sx={{ width: 68, height: 68, objectFit: 'cover', borderRadius: 1, border: '1px solid rgba(255,255,255,0.1)' }}
+              />
+              <IconButton
+                size="small"
+                onClick={() => onRemoveExisting(url)}
+                sx={{
+                  position: 'absolute', top: -8, right: -8,
+                  bgcolor: 'error.main', color: '#fff',
+                  width: 20, height: 20, p: 0,
+                  '&:hover': { bgcolor: 'error.dark' },
+                }}
+              >
+                <CloseIcon sx={{ fontSize: 12 }} />
+              </IconButton>
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+// ─────────────────────────────────────────────
+// PRODUCT FORM DIALOG
+// ─────────────────────────────────────────────
+const ProductFormDialog = ({ open, onClose, onSaved, editProduct, defaultCategory }) => {
+  const { showSnackbar } = useSnackbar();
+  const [form, setForm] = useState(emptyForm);
+  const [newFiles, setNewFiles] = useState([]);
+  const [previewUrls, setPreviewUrls] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [removedExisting, setRemovedExisting] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [tab, setTab] = useState(0);
+
+  // Populate form if editing
+  useEffect(() => {
+    if (editProduct) {
+      setForm({
+        name: editProduct.name || '',
+        category: editProduct.category || 'Gem',
+        price: String(editProduct.price || ''),
+        description: editProduct.description || '',
+        stock: String(editProduct.stock || ''),
+        featured: editProduct.featured || false,
+        seoTitle: editProduct.seoTitle || '',
+        seoDescription: editProduct.seoDescription || '',
+        seoKeywords: editProduct.seoKeywords || '',
+        ogTitle: editProduct.ogTitle || '',
+        ogDescription: editProduct.ogDescription || '',
+      });
+      setExistingImages(editProduct.images || []);
+    } else {
+      setForm({ ...emptyForm, category: defaultCategory || 'Gem' });
+      setExistingImages([]);
+    }
+    setNewFiles([]);
+    setPreviewUrls([]);
+    setRemovedExisting([]);
+  }, [editProduct, open]);
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleFilesAdded = (files) => {
+    setNewFiles((prev) => [...prev, ...files]);
+    const urls = files.map((f) => URL.createObjectURL(f));
+    setPreviewUrls((prev) => [...prev, ...urls]);
+  };
+
+  const handleRemoveNewFile = (index) => {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveExisting = (url) => {
+    setRemovedExisting((prev) => [...prev, url]);
+    setExistingImages((prev) => prev.filter((u) => u !== url));
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name || !form.price || !form.stock) {
+      showSnackbar('Name, price, and stock are required.', 'error');
+      return;
+    }
+    setUploading(true);
+    try {
+      if (editProduct) {
+        await updateProduct(
+          editProduct.id,
+          { ...form, images: existingImages },
+          newFiles,
+          removedExisting
+        );
+        showSnackbar('Product updated successfully', 'success');
+      } else {
+        await addProduct(form, newFiles);
+        showSnackbar('Product added successfully', 'success');
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      showSnackbar(
+        err?.message || 'Error saving product. Check Firebase config.',
+        'error'
+      );
+      console.error(err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+      PaperProps={{ sx: { bgcolor: 'background.paper', border: '1px solid rgba(201,168,76,0.15)' } }}
+    >
+      <DialogTitle
+        sx={{
+          fontFamily: '"Playfair Display", serif',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        {editProduct ? 'Edit Product' : 'Add New Product'}
+        <IconButton onClick={onClose} size="small" sx={{ color: 'text.secondary' }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={tab} onChange={(e, v) => setTab(v)} textColor="secondary" indicatorColor="secondary" variant="scrollable" scrollButtons="auto">
+          <Tab label="Basic Info" />
+          <Tab label="SEO" />
+        </Tabs>
+      </Box>
+
+      <DialogContent sx={{ pt: 3 }}>
+        {uploading && (
+          <Box sx={{ mb: 2 }}>
+            <LinearProgress
+              variant="indeterminate"
+              sx={{ bgcolor: 'rgba(255,255,255,0.06)', '& .MuiLinearProgress-bar': { bgcolor: 'secondary.main' } }}
+            />
+            <Typography variant="caption" color="text.secondary" mt={0.5} display="block">
+              Uploading images and saving product…
+            </Typography>
+          </Box>
+        )}
+
+        {tab === 0 && (
+        <Box className="row g-3">
+          <Box className="col-12 col-sm-8">
+            <TextField
+              label="Product Name"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              fullWidth
+              required
+              disabled={uploading}
+            />
+          </Box>
+          <Box className="col-12 col-sm-4">
+            <TextField
+              select
+              label="Category"
+              name="category"
+              value={form.category}
+              onChange={handleChange}
+              fullWidth
+              disabled={uploading}
+            >
+              {CATEGORY_OPTIONS.map(({ value, label }) => (
+                <MenuItem key={value} value={value}>{label}</MenuItem>
+              ))}
+            </TextField>
+          </Box>
+
+          <Box className="col-12 col-sm-6">
+            <TextField
+              label="Price (LKR)"
+              name="price"
+              type="number"
+              value={form.price}
+              onChange={handleChange}
+              fullWidth
+              required
+              disabled={uploading}
+              InputProps={{
+                startAdornment: <InputAdornment position="start" sx={{ color: 'secondary.main' }}>Rs.</InputAdornment>,
+              }}
+            />
+          </Box>
+          <Box className="col-12 col-sm-6">
+            <TextField
+              label="Stock Quantity"
+              name="stock"
+              type="number"
+              value={form.stock}
+              onChange={handleChange}
+              fullWidth
+              required
+              disabled={uploading}
+              inputProps={{ min: 0 }}
+            />
+          </Box>
+
+          <Box className="col-12">
+            <TextField
+              label="Description"
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              fullWidth
+              multiline
+              rows={4}
+              disabled={uploading}
+            />
+          </Box>
+
+          <Box className="col-12">
+            <FormControlLabel
+              control={
+                <Switch
+                  name="featured"
+                  checked={form.featured}
+                  onChange={handleChange}
+                  disabled={uploading}
+                  sx={{
+                    '& .MuiSwitch-switchBase.Mui-checked': { color: 'secondary.main' },
+                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: 'secondary.dark' },
+                  }}
+                />
+              }
+              label={
+                <Typography variant="body2" color="text.secondary">
+                  Feature on Home Page
+                </Typography>
+              }
+            />
+          </Box>
+
+          <Box className="col-12">
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Product Images
+            </Typography>
+            <ImageDropzone
+              onFilesAdded={handleFilesAdded}
+              existingImages={existingImages}
+              onRemoveExisting={handleRemoveExisting}
+            />
+
+            {/* New file previews */}
+            {previewUrls.length > 0 && (
+              <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {previewUrls.map((url, i) => (
+                  <Box key={i} sx={{ position: 'relative' }}>
+                    <Box
+                      component="img"
+                      src={url}
+                      alt={`new-${i}`}
+                      sx={{
+                        width: 68, height: 68,
+                        objectFit: 'cover',
+                        borderRadius: 1,
+                        border: '2px solid',
+                        borderColor: 'secondary.main',
+                        opacity: 0.85,
+                      }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemoveNewFile(i)}
+                      sx={{
+                        position: 'absolute', top: -8, right: -8,
+                        bgcolor: 'error.main', color: '#fff',
+                        width: 20, height: 20, p: 0,
+                        '&:hover': { bgcolor: 'error.dark' },
+                      }}
+                    >
+                      <CloseIcon sx={{ fontSize: 12 }} />
+                    </IconButton>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+        </Box>
+        )}
+
+        {tab === 1 && (
+          <Box className="row g-3">
+            <Box className="col-12">
+              <TextField label="SEO Title" name="seoTitle" value={form.seoTitle} onChange={handleChange} fullWidth disabled={uploading} />
+            </Box>
+            <Box className="col-12">
+              <TextField label="SEO Description" name="seoDescription" value={form.seoDescription} onChange={handleChange} fullWidth multiline rows={2} disabled={uploading} />
+            </Box>
+            <Box className="col-12">
+              <TextField label="SEO Keywords" name="seoKeywords" value={form.seoKeywords} onChange={handleChange} fullWidth disabled={uploading} placeholder="e.g. ruby, natural gems, ring" />
+            </Box>
+            <Box className="col-12">
+              <TextField label="Open Graph Title" name="ogTitle" value={form.ogTitle} onChange={handleChange} fullWidth disabled={uploading} />
+            </Box>
+            <Box className="col-12">
+              <TextField label="Open Graph Description" name="ogDescription" value={form.ogDescription} onChange={handleChange} fullWidth multiline rows={2} disabled={uploading} />
+            </Box>
+          </Box>
+        )}
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid rgba(255,255,255,0.06)', gap: 1 }}>
+        <Button onClick={onClose} disabled={uploading} sx={{ color: 'text.secondary' }}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={handleSubmit}
+          disabled={uploading}
+          sx={{ px: 4 }}
+        >
+          {editProduct ? 'Save Changes' : 'Add Product'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ─────────────────────────────────────────────
+// GEMSTONE FORM DIALOG
+// ─────────────────────────────────────────────
+const GemstoneFormDialog = ({ open, onClose, onSaved, editGemstone }) => {
+  const { showSnackbar } = useSnackbar();
+  const [form, setForm] = useState(emptyGemstoneForm);
+  const [newFiles, setNewFiles] = useState([]);
+  const [previewUrls, setPreviewUrls] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [removedExisting, setRemovedExisting] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState(0);
+
+  useEffect(() => {
+    if (editGemstone) {
+      setForm({
+        name: editGemstone.name || '',
+        nameSi: editGemstone.nameSi || '',
+        imageUrl: '',
+        description: editGemstone.description || '',
+        descriptionSi: editGemstone.descriptionSi || '',
+        benefits: editGemstone.benefits || '',
+        benefitsSi: editGemstone.benefitsSi || '',
+        month: editGemstone.month || '',
+        category: (editGemstone.categories?.[0] || GEMSTONE_CATEGORIES[0] || 'Precious'),
+        status: editGemstone.status || 'Active',
+        seoTitle: editGemstone.seoTitle || '',
+        seoDescription: editGemstone.seoDescription || '',
+        seoKeywords: editGemstone.seoKeywords || '',
+        ogTitle: editGemstone.ogTitle || '',
+        ogDescription: editGemstone.ogDescription || '',
+      });
+
+      let initialUrls = [];
+      if (Array.isArray(editGemstone.imageUrls) && editGemstone.imageUrls.length > 0) {
+        initialUrls = editGemstone.imageUrls;
+      } else if (editGemstone.imageUrl) {
+        initialUrls = [editGemstone.imageUrl];
+      }
+      setExistingImages(initialUrls.filter(Boolean));
+    } else {
+      setForm(emptyGemstoneForm);
+      setExistingImages([]);
+    }
+    setNewFiles([]);
+    setPreviewUrls([]);
+    setRemovedExisting([]);
+  }, [editGemstone, open]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFilesAdded = (files) => {
+    const accepted = Array.isArray(files) ? files : [];
+    const valid = accepted.filter((file) => {
+      if (!String(file?.type || '').startsWith('image/')) return false;
+      return file.size <= 5 * 1024 * 1024;
+    });
+
+    const rejectedCount = accepted.length - valid.length;
+    if (rejectedCount > 0) {
+      showSnackbar('Some files were skipped (invalid type or > 5MB).', 'warning');
+    }
+
+    setNewFiles((prev) => [...prev, ...valid]);
+    const urls = valid.map((f) => URL.createObjectURL(f));
+    setPreviewUrls((prev) => [...prev, ...urls]);
+  };
+
+  const handleRemoveNewFile = (index) => {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveExisting = (url) => {
+    setRemovedExisting((prev) => [...prev, url]);
+    setExistingImages((prev) => prev.filter((u) => u !== url));
+  };
+
+  const validate = () => {
+    const name = String(form.name || '').trim();
+    const description = String(form.description || '').trim();
+    const benefits = String(form.benefits || '').trim();
+    const nameSi = String(form.nameSi || '').trim();
+    const descriptionSi = String(form.descriptionSi || '').trim();
+    const benefitsSi = String(form.benefitsSi || '').trim();
+    const category = String(form.category || '').trim();
+    const status = String(form.status || '').trim();
+    const imageUrl = String(form.imageUrl || '').trim();
+
+    if (!name || !description || !benefits || !category || !status) {
+      return 'Please fill in all required fields.';
+    }
+
+    // Sinhala fields are optional; if left empty, UI falls back to English.
+    // Keeping this optional avoids breaking existing gemstones.
+    if ((nameSi && !descriptionSi) || (nameSi && !benefitsSi)) {
+      return 'If you provide Sinhala name, please also add Sinhala description and benefits.';
+    }
+
+    const hasAnyImages = existingImages.length > 0 || newFiles.length > 0 || Boolean(imageUrl);
+    if (!hasAnyImages) {
+      return 'Please provide at least one image (upload or URL).';
+    }
+
+    if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+      return 'Image URL must start with http:// or https://';
+    }
+
+    return null;
+  };
+
+  const handleSubmit = async () => {
+    const error = validate();
+    if (error) {
+      showSnackbar(error, 'error');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const urlToAppend = String(form.imageUrl || '').trim();
+      const nextExisting = urlToAppend && !existingImages.includes(urlToAppend)
+        ? [...existingImages, urlToAppend]
+        : existingImages;
+
+      const payload = {
+        name: form.name,
+        nameSi: form.nameSi,
+        description: form.description,
+        descriptionSi: form.descriptionSi,
+        benefits: form.benefits,
+        benefitsSi: form.benefitsSi,
+        month: form.month || null,
+        categories: [form.category],
+        status: form.status,
+        imageUrls: nextExisting,
+        seoTitle: form.seoTitle,
+        seoDescription: form.seoDescription,
+        seoKeywords: form.seoKeywords,
+        ogTitle: form.ogTitle,
+        ogDescription: form.ogDescription,
+      };
+
+      if (editGemstone) {
+        await updateGemstone(editGemstone.id, payload, newFiles, removedExisting);
+        showSnackbar('Gemstone updated successfully', 'success');
+      } else {
+        await addGemstone(payload, newFiles);
+        showSnackbar('Gemstone added successfully', 'success');
+      }
+
+      onSaved();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      showSnackbar(err?.message || 'Error saving gemstone. Check Firebase config.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+      PaperProps={{ sx: { bgcolor: 'background.paper', border: '1px solid rgba(201,168,76,0.15)' } }}
+    >
+      <DialogTitle
+        sx={{
+          fontFamily: '"Playfair Display", serif',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        {editGemstone ? 'Edit Gemstone' : 'Add New Gemstone'}
+        <IconButton onClick={onClose} size="small" sx={{ color: 'text.secondary' }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={tab} onChange={(e, v) => setTab(v)} textColor="secondary" indicatorColor="secondary" variant="scrollable" scrollButtons="auto">
+          <Tab label="Basic Info" />
+          <Tab label="SEO" />
+        </Tabs>
+      </Box>
+
+      <DialogContent sx={{ pt: 3 }}>
+        {saving && (
+          <Box sx={{ mb: 2 }}>
+            <LinearProgress
+              variant="indeterminate"
+              sx={{ bgcolor: 'rgba(255,255,255,0.06)', '& .MuiLinearProgress-bar': { bgcolor: 'secondary.main' } }}
+            />
+            <Typography variant="caption" color="text.secondary" mt={0.5} display="block">
+              Saving gemstone…
+            </Typography>
+          </Box>
+        )}
+
+        {tab === 0 && (
+        <Box className="row g-3">
+          <Box className="col-12 col-sm-7">
+            <TextField
+              label="Gem Name (English)"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              fullWidth
+              required
+              disabled={saving}
+            />
+          </Box>
+          <Box className="col-12 col-sm-5">
+            <TextField
+              select
+              label="Status"
+              name="status"
+              value={form.status}
+              onChange={handleChange}
+              fullWidth
+              required
+              disabled={saving}
+            >
+              {GEMSTONE_STATUS_OPTIONS.map((s) => (
+                <MenuItem key={s} value={s}>{s}</MenuItem>
+              ))}
+            </TextField>
+          </Box>
+
+          <Box className="col-12">
+            <TextField
+              label="Gem Name (Sinhala)"
+              name="nameSi"
+              value={form.nameSi}
+              onChange={handleChange}
+              fullWidth
+              disabled={saving}
+              placeholder="සිංහල නාමය (optional)"
+              helperText="Optional — if left blank, the guide will show the English name."
+            />
+          </Box>
+
+          <Box className="col-12">
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Image Upload (you can select multiple)
+            </Typography>
+            <ImageDropzone
+              onFilesAdded={handleFilesAdded}
+              existingImages={existingImages}
+              onRemoveExisting={handleRemoveExisting}
+            />
+
+            {/* New file previews */}
+            {previewUrls.length > 0 && (
+              <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {previewUrls.map((url, i) => (
+                  <Box key={i} sx={{ position: 'relative' }}>
+                    <Box
+                      component="img"
+                      src={url}
+                      alt={`new-${i}`}
+                      sx={{
+                        width: 68,
+                        height: 68,
+                        objectFit: 'cover',
+                        borderRadius: 1,
+                        border: '2px solid',
+                        borderColor: 'secondary.main',
+                        opacity: 0.85,
+                      }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemoveNewFile(i)}
+                      sx={{
+                        position: 'absolute',
+                        top: -8,
+                        right: -8,
+                        bgcolor: 'error.main',
+                        color: '#fff',
+                        width: 20,
+                        height: 20,
+                        p: 0,
+                        '&:hover': { bgcolor: 'error.dark' },
+                      }}
+                    >
+                      <CloseIcon sx={{ fontSize: 12 }} />
+                    </IconButton>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+
+          <Box className="col-12">
+            <TextField
+              label="Add Image URL (optional)"
+              name="imageUrl"
+              value={form.imageUrl}
+              onChange={handleChange}
+              fullWidth
+              disabled={saving}
+              placeholder="https://..."
+              helperText="Optional. If provided, it will be added to the image list."
+            />
+          </Box>
+
+          <Box className="col-12 col-sm-6">
+            <TextField
+              select
+              label="Month (optional)"
+              name="month"
+              value={form.month}
+              onChange={handleChange}
+              fullWidth
+              disabled={saving}
+            >
+              <MenuItem value="">Not applicable</MenuItem>
+              {GEMSTONE_MONTHS.map((m) => (
+                <MenuItem key={m} value={m}>{m}</MenuItem>
+              ))}
+            </TextField>
+          </Box>
+          <Box className="col-12 col-sm-6">
+            <TextField
+              select
+              label="Category"
+              name="category"
+              value={form.category}
+              onChange={handleChange}
+              fullWidth
+              required
+              disabled={saving}
+            >
+              {GEMSTONE_CATEGORIES.map((c) => (
+                <MenuItem key={c} value={c}>{c}</MenuItem>
+              ))}
+            </TextField>
+          </Box>
+
+          <Box className="col-12">
+            <TextField
+              label="Description (English)"
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              fullWidth
+              multiline
+              rows={4}
+              required
+              disabled={saving}
+            />
+          </Box>
+
+          <Box className="col-12">
+            <TextField
+              label="Description (Sinhala)"
+              name="descriptionSi"
+              value={form.descriptionSi}
+              onChange={handleChange}
+              fullWidth
+              multiline
+              rows={4}
+              disabled={saving}
+              placeholder="සිංහල විස්තරය (optional)"
+              helperText="Optional — if left blank, the guide will show the English description."
+            />
+          </Box>
+
+          <Box className="col-12">
+            <TextField
+              label="Benefits / Meaning (English)"
+              name="benefits"
+              value={form.benefits}
+              onChange={handleChange}
+              fullWidth
+              multiline
+              rows={4}
+              required
+              disabled={saving}
+            />
+          </Box>
+
+          <Box className="col-12">
+            <TextField
+              label="Benefits / Meaning (Sinhala)"
+              name="benefitsSi"
+              value={form.benefitsSi}
+              onChange={handleChange}
+              fullWidth
+              multiline
+              rows={4}
+              disabled={saving}
+              placeholder="සිංහල ප්‍රයෝජන/අර්ථය (optional)"
+              helperText="Optional — if left blank, the guide will show the English benefits."
+            />
+          </Box>
+        </Box>
+        )}
+
+        {tab === 1 && (
+          <Box className="row g-3">
+            <Box className="col-12">
+              <TextField label="SEO Title" name="seoTitle" value={form.seoTitle} onChange={handleChange} fullWidth disabled={saving} />
+            </Box>
+            <Box className="col-12">
+              <TextField label="SEO Description" name="seoDescription" value={form.seoDescription} onChange={handleChange} fullWidth multiline rows={2} disabled={saving} />
+            </Box>
+            <Box className="col-12">
+              <TextField label="SEO Keywords" name="seoKeywords" value={form.seoKeywords} onChange={handleChange} fullWidth disabled={saving} placeholder="e.g. ruby, natural gems, ring" />
+            </Box>
+            <Box className="col-12">
+              <TextField label="Open Graph Title" name="ogTitle" value={form.ogTitle} onChange={handleChange} fullWidth disabled={saving} />
+            </Box>
+            <Box className="col-12">
+              <TextField label="Open Graph Description" name="ogDescription" value={form.ogDescription} onChange={handleChange} fullWidth multiline rows={2} disabled={saving} />
+            </Box>
+          </Box>
+        )}
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid rgba(255,255,255,0.06)', gap: 1 }}>
+        <Button onClick={onClose} disabled={saving} sx={{ color: 'text.secondary' }}>
+          Cancel
+        </Button>
+        <Button variant="contained" color="secondary" onClick={handleSubmit} disabled={saving} sx={{ px: 4 }}>
+          {editGemstone ? 'Save Changes' : 'Add Gemstone'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+// ─────────────────────────────────────────────
+// GEMSTONE DELETE CONFIRM DIALOG
+// ─────────────────────────────────────────────
+const DeleteGemstoneDialog = ({ open, onClose, onConfirm, gemName }) => (
+  <Dialog
+    open={open}
+    onClose={onClose}
+    PaperProps={{ sx: { bgcolor: 'background.paper', border: '1px solid rgba(244,67,54,0.2)', maxWidth: 420 } }}
+  >
+    <DialogTitle sx={{ fontFamily: '"Playfair Display", serif' }}>Confirm Delete</DialogTitle>
+    <DialogContent>
+      <Typography variant="body2" color="text.secondary">
+        Are you sure you want to delete <strong style={{ color: '#F5F5F0' }}>{gemName}</strong>?
+        This will also attempt to remove the stored image. This action cannot be undone.
+      </Typography>
+    </DialogContent>
+    <DialogActions sx={{ px: 3, pb: 2 }}>
+      <Button onClick={onClose} sx={{ color: 'text.secondary' }}>Cancel</Button>
+      <Button onClick={onConfirm} color="error" variant="contained" sx={{ px: 3 }}>Delete</Button>
+    </DialogActions>
+  </Dialog>
+);
+
+// ─────────────────────────────────────────────
+// PASSWORD GATE
+// ─────────────────────────────────────────────
+const PasswordGate = ({ onUnlock, mode, onToggleColorMode }) => {
+  const [input, setInput] = useState('');
+  const [error, setError] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (input === ADMIN_PASSWORD) {
+      sessionStorage.setItem('admin_unlocked', 'true');
+      onUnlock();
+    } else {
+      setError(true);
+      setInput('');
+    }
+  };
+
+  return (
+    <Box
+      sx={(theme) => ({
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background:
+          theme.palette.mode === 'dark'
+            ? 'radial-gradient(ellipse at center, rgba(27,67,50,0.2) 0%, #0A0A0A 70%)'
+            : 'radial-gradient(ellipse at center, rgba(27,67,50,0.14) 0%, #F7F1E4 70%)',
+      })}
+    >
+      <Box
+        component="form"
+        onSubmit={handleSubmit}
+        sx={{
+          width: '100%',
+          maxWidth: 380,
+          p: 4,
+          borderRadius: 3,
+          bgcolor: 'background.paper',
+          border: '1px solid rgba(201,168,76,0.2)',
+          textAlign: 'center',
+        }}
+      >
+        <Avatar sx={{ bgcolor: 'rgba(201,168,76,0.1)', width: 60, height: 60, mx: 'auto', mb: 2, border: '1px solid rgba(201,168,76,0.3)' }}>
+          <LockIcon sx={{ color: 'secondary.main', fontSize: 28 }} />
+        </Avatar>
+        <DiamondIcon sx={{ color: 'secondary.main', fontSize: 16, mb: 0.5 }} />
+        <Typography variant="h5" sx={{ fontFamily: '"Playfair Display", serif', mb: 0.5 }}>
+          Admin Access
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Enter the admin password to continue
+        </Typography>
+
+        <TextField
+          type="password"
+          label="Password"
+          value={input}
+          onChange={(e) => { setInput(e.target.value); setError(false); }}
+          error={error}
+          helperText={error ? 'Incorrect password' : ''}
+          fullWidth
+          autoFocus
+          sx={{ mb: 2.5 }}
+        />
+        <Button type="submit" variant="contained" color="secondary" fullWidth size="large">
+          Unlock Admin Panel
+        </Button>
+        <Button
+          type="button"
+          variant="text"
+          size="small"
+          onClick={onToggleColorMode}
+          sx={{ mt: 1.25, color: 'text.secondary' }}
+          startIcon={mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+        >
+          {mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
+        </Button>
+      </Box>
+    </Box>
+  );
+};
+
+// ─────────────────────────────────────────────
+// DELETE CONFIRM DIALOG
+// ─────────────────────────────────────────────
+const DeleteDialog = ({ open, onClose, onConfirm, productName }) => (
+  <Dialog
+    open={open}
+    onClose={onClose}
+    PaperProps={{ sx: { bgcolor: 'background.paper', border: '1px solid rgba(244,67,54,0.2)', maxWidth: 400 } }}
+  >
+    <DialogTitle sx={{ fontFamily: '"Playfair Display", serif' }}>Confirm Delete</DialogTitle>
+    <DialogContent>
+      <Typography variant="body2" color="text.secondary">
+        Are you sure you want to delete <strong style={{ color: '#F5F5F0' }}>{productName}</strong>?
+        This will also remove all associated images from storage. This action cannot be undone.
+      </Typography>
+    </DialogContent>
+    <DialogActions sx={{ px: 3, pb: 2 }}>
+      <Button onClick={onClose} sx={{ color: 'text.secondary' }}>Cancel</Button>
+      <Button onClick={onConfirm} color="error" variant="contained" sx={{ px: 3 }}>Delete</Button>
+    </DialogActions>
+  </Dialog>
+);
+
+// ─────────────────────────────────────────────
+// MAIN ADMIN DASHBOARD
+// ─────────────────────────────────────────────
+const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
+  const { showSnackbar } = useSnackbar();
+
+  const [section, setSection] = useState('jewelry');
+
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editProduct, setEditProduct] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [search, setSearch] = useState('');
+
+  // Gemstones state
+  const [gemstones, setGemstones] = useState([]);
+  const [gemLoading, setGemLoading] = useState(false);
+  const [gemFormOpen, setGemFormOpen] = useState(false);
+  const [editGemstone, setEditGemstone] = useState(null);
+  const [deleteGemTarget, setDeleteGemTarget] = useState(null);
+  const [gemSearch, setGemSearch] = useState('');
+  const [gemMonth, setGemMonth] = useState('');
+  const [gemCategory, setGemCategory] = useState('');
+  const [gemStatus, setGemStatus] = useState('');
+  const [gemHasMore, setGemHasMore] = useState(false);
+  const [gemPageIndex, setGemPageIndex] = useState(0);
+  const [gemCursors, setGemCursors] = useState([]);
+
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getProducts();
+      setProducts(data);
+    } catch {
+      showSnackbar('Failed to load products. Check Firebase config.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [showSnackbar]);
+
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  const fetchGemstones = useCallback(async (pageIndex = 0, startAfterDoc = null) => {
+    setGemLoading(true);
+    try {
+      const result = await getGemstonesPage({
+        pageSize: 10,
+        startAfterDoc,
+        month: gemMonth || null,
+        status: gemStatus || null,
+        category: gemCategory || null,
+        searchPrefix: gemSearch || '',
+      });
+
+      setGemstones(result.items);
+      setGemHasMore(Boolean(result.hasMore));
+
+      if (result.lastDoc) {
+        setGemCursors((prev) => {
+          const next = [...prev];
+          next[pageIndex] = result.lastDoc;
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      showSnackbar('Failed to load gemstones. Check Firebase config.', 'error');
+    } finally {
+      setGemLoading(false);
+    }
+  }, [gemCategory, gemMonth, gemSearch, gemStatus, showSnackbar]);
+
+  useEffect(() => {
+    if (section !== 'gemstones') return;
+    setGemPageIndex(0);
+    setGemCursors([]);
+    fetchGemstones(0, null);
+  }, [section, gemMonth, gemCategory, gemStatus, gemSearch, fetchGemstones]);
+
+  const handleEdit = (product) => {
+    setEditProduct(product);
+    setFormOpen(true);
+  };
+
+  const handleAdd = () => {
+    setEditProduct(null);
+    setFormOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteProduct(deleteTarget.id, deleteTarget.images || []);
+      showSnackbar(`"${deleteTarget.name}" deleted`, 'success');
+      fetchProducts();
+    } catch {
+      showSnackbar('Delete failed. Check Firebase config.', 'error');
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
+  const filtered = products.filter((p) => {
+    const matchesSearch = p.name?.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = section === 'jewelry' ? p.category === 'Jewelry' : p.category === 'Gem';
+    return matchesSearch && matchesCategory;
+  });
+
+  const gems = products.filter((p) => p.category === 'Gem').length;
+  const jewelry = products.filter((p) => p.category === 'Jewelry').length;
+
+  return (
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      {/* Admin Header */}
+      <Box
+        sx={{
+          bgcolor: 'background.paper',
+          borderBottom: '1px solid rgba(201,168,76,0.15)',
+          px: { xs: 2, md: 4 },
+          py: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <DiamondIcon sx={{ color: 'secondary.main' }} />
+          <Box>
+            <Typography sx={{ fontFamily: '"Playfair Display", serif', fontSize: '1rem', lineHeight: 1 }}>
+              LUMINA Admin
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'secondary.main', letterSpacing: '0.12em', fontSize: '0.55rem' }}>
+              DASHBOARD
+            </Typography>
+          </Box>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton
+            onClick={onToggleColorMode}
+            sx={{ color: 'text.secondary', '&:hover': { color: 'secondary.main' } }}
+            aria-label="Toggle light and dark mode"
+          >
+            {mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+          </IconButton>
+          <Button
+            startIcon={<LogoutIcon />}
+            onClick={onLogout}
+            size="small"
+            sx={{ color: 'text.secondary', '&:hover': { color: 'error.light' }, fontSize: '0.75rem' }}
+          >
+            Sign Out
+          </Button>
+        </Box>
+      </Box>
+
+      <Box className="container-fluid lumina-section-container" sx={{ py: 4 }}>
+        {/* Sections */}
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography
+              variant="h5"
+              sx={{ fontFamily: '"Playfair Display", serif' }}
+            >
+              {section === 'jewelry' ? 'Jewelry Management' : section === 'gems' ? 'Gems Management' : section === 'gemstones' ? 'Gemstone Guide' : 'Collection Management'}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant={section === 'jewelry' ? 'contained' : 'outlined'}
+                color="secondary"
+                size="small"
+                onClick={() => setSection('jewelry')}
+              >
+                Jewelry
+              </Button>
+              <Button
+                variant={section === 'gems' ? 'contained' : 'outlined'}
+                color="secondary"
+                size="small"
+                onClick={() => setSection('gems')}
+              >
+                Gems (Shop)
+              </Button>
+              <Button
+                variant={section === 'gemstones' ? 'contained' : 'outlined'}
+                color="secondary"
+                size="small"
+                onClick={() => setSection('gemstones')}
+              >
+                Gemstone Guide
+              </Button>
+              <Button
+                variant={section === 'collections' ? 'contained' : 'outlined'}
+                color="secondary"
+                size="small"
+                onClick={() => setSection('collections')}
+              >
+                Collections
+              </Button>
+            </Box>
+          </Box>
+        </Box>
+
+        {(section === 'jewelry' || section === 'gems') && (
+          <>
+            {/* Stats row */}
+            <Box className="row g-3 mb-4">
+              {[
+                { label: 'Total Products', value: products.length, color: 'secondary.main' },
+                { label: 'Gemstones', value: gems, color: '#6FCFA0' },
+                { label: 'Jewelry', value: jewelry, color: '#C9A84C' },
+                { label: 'Out of Stock', value: products.filter((p) => p.stock === 0).length, color: 'error.main' },
+              ].map(({ label, value, color }) => (
+                <Box className="col-6 col-md-3" key={label}>
+                  <Box
+                    sx={{
+                      p: 2.5,
+                      borderRadius: 2,
+                      bgcolor: 'background.paper',
+                      border: '1px solid rgba(255,255,255,0.05)',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <Typography variant="h4" sx={{ color, fontFamily: '"Playfair Display", serif' }}>
+                      {value}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: '0.08em' }}>
+                      {label.toUpperCase()}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+
+            {/* Toolbar */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+              <TextField
+                placeholder="Search products..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                size="small"
+                sx={{ width: { xs: '100%', sm: 260 } }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'text.secondary', fontSize: 18 }} /></InputAdornment>,
+                }}
+              />
+              <Button
+                variant="contained"
+                color="secondary"
+                startIcon={<AddIcon />}
+                onClick={handleAdd}
+              >
+                Add Product
+              </Button>
+            </Box>
+
+            {/* Table */}
+            {loading ? (
+              <LoadingSpinner message="Loading products..." />
+            ) : (
+              <TableContainer
+                component={Paper}
+                sx={{
+                  bgcolor: 'background.paper',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: 2,
+                }}
+              >
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ '& th': { borderColor: 'rgba(201,168,76,0.1)', color: 'secondary.main', letterSpacing: '0.08em', fontSize: '0.72rem' } }}>
+                      <TableCell>PRODUCT</TableCell>
+                      <TableCell>CATEGORY</TableCell>
+                      <TableCell>PRICE</TableCell>
+                      <TableCell>STOCK</TableCell>
+                      <TableCell>FEATURED</TableCell>
+                      <TableCell align="right">ACTIONS</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                      {search ? 'No products match your search.' : 'No products yet. Add your first one!'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map((product) => (
+                    <TableRow
+                      key={product.id}
+                      sx={{
+                        '& td': { borderColor: 'rgba(255,255,255,0.04)' },
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' },
+                      }}
+                    >
+                      {/* Product name + thumbnail */}
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Box
+                            sx={{
+                              width: 42, height: 42, borderRadius: 1,
+                              overflow: 'hidden', flexShrink: 0,
+                              bgcolor: '#1A1A1A',
+                              border: '1px solid rgba(255,255,255,0.06)',
+                            }}
+                          >
+                            {product.images?.[0] ? (
+                              <Box
+                                component="img"
+                                src={product.images[0]}
+                                alt={product.name}
+                                sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <DiamondIcon sx={{ fontSize: 18, color: 'secondary.main', opacity: 0.3 }} />
+                              </Box>
+                            )}
+                          </Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>
+                            {product.name}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+
+                      <TableCell>
+                        <Chip
+                          label={product.category}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: '0.65rem',
+                            bgcolor: product.category === 'Gem'
+                              ? 'rgba(27,67,50,0.6)'
+                              : 'rgba(201,168,76,0.12)',
+                            color: product.category === 'Gem' ? '#6FCFA0' : 'secondary.main',
+                            border: '1px solid',
+                            borderColor: product.category === 'Gem'
+                              ? 'rgba(111,207,160,0.2)'
+                              : 'rgba(201,168,76,0.2)',
+                          }}
+                        />
+                      </TableCell>
+
+                      <TableCell>
+                        <Typography variant="body2" sx={{ color: 'secondary.main', fontWeight: 500 }}>
+                          {formatCurrency(product.price)}
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell>
+                        <Chip
+                          label={product.stock === 0 ? 'Out of Stock' : `${product.stock} left`}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: '0.65rem',
+                            bgcolor: product.stock === 0 ? 'rgba(244,67,54,0.1)' : 'rgba(102,187,106,0.1)',
+                            color: product.stock === 0 ? 'error.main' : 'success.main',
+                            border: '1px solid',
+                            borderColor: product.stock === 0 ? 'rgba(244,67,54,0.2)' : 'rgba(102,187,106,0.2)',
+                          }}
+                        />
+                      </TableCell>
+
+                      <TableCell>
+                        <Typography variant="body2" sx={{ color: product.featured ? 'secondary.main' : 'text.secondary' }}>
+                          {product.featured ? '★ Yes' : '—'}
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell align="right">
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEdit(product)}
+                            sx={{
+                              color: 'text.secondary',
+                              '&:hover': { color: 'secondary.main', bgcolor: 'rgba(201,168,76,0.08)' },
+                              mr: 0.5,
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            onClick={() => setDeleteTarget(product)}
+                            sx={{
+                              color: 'text.secondary',
+                              '&:hover': { color: 'error.main', bgcolor: 'rgba(244,67,54,0.08)' },
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+            )}
+          </>
+        )}
+
+        {section === 'gemstones' && (
+          <>
+            {/* Gemstone toolbar */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+              <TextField
+                placeholder="Search gemstones (prefix)..."
+                value={gemSearch}
+                onChange={(e) => setGemSearch(e.target.value)}
+                size="small"
+                sx={{ width: { xs: '100%', sm: 260 } }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'text.secondary', fontSize: 18 }} /></InputAdornment>,
+                }}
+              />
+
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                <TextField
+                  select
+                  label="Status"
+                  value={gemStatus}
+                  onChange={(e) => setGemStatus(e.target.value)}
+                  size="small"
+                  sx={{ minWidth: 140, width: { xs: '100%', sm: 160 } }}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {GEMSTONE_STATUS_OPTIONS.map((s) => (
+                    <MenuItem key={s} value={s}>{s}</MenuItem>
+                  ))}
+                </TextField>
+
+                <TextField
+                  select
+                  label="Month"
+                  value={gemMonth}
+                  onChange={(e) => setGemMonth(e.target.value)}
+                  size="small"
+                  sx={{ minWidth: 160, width: { xs: '100%', sm: 180 } }}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {GEMSTONE_MONTHS.map((m) => (
+                    <MenuItem key={m} value={m}>{m}</MenuItem>
+                  ))}
+                </TextField>
+
+                <TextField
+                  select
+                  label="Category"
+                  value={gemCategory}
+                  onChange={(e) => setGemCategory(e.target.value)}
+                  size="small"
+                  sx={{ minWidth: 180, width: { xs: '100%', sm: 200 } }}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {GEMSTONE_CATEGORIES.map((c) => (
+                    <MenuItem key={c} value={c}>{c}</MenuItem>
+                  ))}
+                </TextField>
+
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  startIcon={<AddIcon />}
+                  onClick={() => { setEditGemstone(null); setGemFormOpen(true); }}
+                >
+                  Add Gemstone
+                </Button>
+              </Box>
+            </Box>
+
+            {/* Gemstones table */}
+            {gemLoading ? (
+              <LoadingSpinner message="Loading gemstones..." />
+            ) : (
+              <TableContainer
+                component={Paper}
+                sx={{
+                  bgcolor: 'background.paper',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: 2,
+                }}
+              >
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ '& th': { borderColor: 'rgba(201,168,76,0.1)', color: 'secondary.main', letterSpacing: '0.08em', fontSize: '0.72rem' } }}>
+                      <TableCell>GEMSTONE</TableCell>
+                      <TableCell>MONTH</TableCell>
+                      <TableCell>CATEGORY</TableCell>
+                      <TableCell>STATUS</TableCell>
+                      <TableCell align="right">ACTIONS</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {gemstones.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                          No gemstones found. Add your first one!
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      gemstones.map((g) => (
+                        <TableRow
+                          key={g.id}
+                          sx={{
+                            '& td': { borderColor: 'rgba(255,255,255,0.04)' },
+                            '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' },
+                          }}
+                        >
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              <Box
+                                sx={{
+                                  width: 42,
+                                  height: 42,
+                                  borderRadius: 1,
+                                  overflow: 'hidden',
+                                  flexShrink: 0,
+                                  bgcolor: '#1A1A1A',
+                                  border: '1px solid rgba(255,255,255,0.06)',
+                                }}
+                              >
+                                {Boolean(g.imageUrls?.[0] || g.imageUrl) ? (
+                                  <Box
+                                    component="img"
+                                    src={g.imageUrls?.[0] || g.imageUrl}
+                                    alt={g.name}
+                                    sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                  />
+                                ) : (
+                                  <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <DiamondIcon sx={{ fontSize: 18, color: 'secondary.main', opacity: 0.3 }} />
+                                  </Box>
+                                )}
+                              </Box>
+                              <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>
+                                {g.name}
+                              </Typography>
+                              {g.nameSi && (
+                                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.2 }}>
+                                  {g.nameSi}
+                                </Typography>
+                              )}
+                            </Box>
+                          </TableCell>
+
+                          <TableCell>
+                            <Typography variant="body2" color="text.secondary">
+                              {g.month || '—'}
+                            </Typography>
+                          </TableCell>
+
+                          <TableCell>
+                            <Chip
+                              label={g.categories?.[0] || '—'}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                                bgcolor: 'rgba(27,67,50,0.6)',
+                                color: '#6FCFA0',
+                                border: '1px solid rgba(111,207,160,0.2)',
+                              }}
+                            />
+                          </TableCell>
+
+                          <TableCell>
+                            <Chip
+                              label={g.status || '—'}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                                bgcolor: g.status === 'Inactive' ? 'rgba(244,67,54,0.1)' : 'rgba(102,187,106,0.1)',
+                                color: g.status === 'Inactive' ? 'error.main' : 'success.main',
+                                border: '1px solid',
+                                borderColor: g.status === 'Inactive' ? 'rgba(244,67,54,0.2)' : 'rgba(102,187,106,0.2)',
+                              }}
+                            />
+                          </TableCell>
+
+                          <TableCell align="right">
+                            <Tooltip title="Edit">
+                              <IconButton
+                                size="small"
+                                onClick={() => { setEditGemstone(g); setGemFormOpen(true); }}
+                                sx={{
+                                  color: 'text.secondary',
+                                  '&:hover': { color: 'secondary.main', bgcolor: 'rgba(201,168,76,0.08)' },
+                                  mr: 0.5,
+                                }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                onClick={() => setDeleteGemTarget(g)}
+                                sx={{
+                                  color: 'text.secondary',
+                                  '&:hover': { color: 'error.main', bgcolor: 'rgba(244,67,54,0.08)' },
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+
+                    {/* Pagination row */}
+                    <TableRow>
+                      <TableCell colSpan={5} sx={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Page {gemPageIndex + 1}
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="secondary"
+                              disabled={gemPageIndex === 0}
+                              onClick={() => {
+                                const prevIndex = Math.max(0, gemPageIndex - 1);
+                                const startAfterDoc = prevIndex === 0 ? null : (gemCursors[prevIndex - 1] || null);
+                                setGemPageIndex(prevIndex);
+                                fetchGemstones(prevIndex, startAfterDoc);
+                              }}
+                            >
+                              Previous
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="secondary"
+                              disabled={!gemHasMore}
+                              onClick={() => {
+                                const nextIndex = gemPageIndex + 1;
+                                const startAfterDoc = gemCursors[gemPageIndex] || null;
+                                setGemPageIndex(nextIndex);
+                                fetchGemstones(nextIndex, startAfterDoc);
+                              }}
+                            >
+                              Next
+                            </Button>
+                          </Box>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+
+            <GemstoneFormDialog
+              open={gemFormOpen}
+              onClose={() => { setGemFormOpen(false); setEditGemstone(null); }}
+              onSaved={() => {
+                const startAfterDoc = gemPageIndex === 0 ? null : (gemCursors[gemPageIndex - 1] || null);
+                fetchGemstones(gemPageIndex, startAfterDoc);
+              }}
+              editGemstone={editGemstone}
+            />
+            <DeleteGemstoneDialog
+              open={Boolean(deleteGemTarget)}
+              onClose={() => setDeleteGemTarget(null)}
+              onConfirm={async () => {
+                if (!deleteGemTarget) return;
+                try {
+                  await deleteGemstone(deleteGemTarget.id, deleteGemTarget.imageUrls || deleteGemTarget.imageUrl || null);
+                  showSnackbar(`"${deleteGemTarget.name}" deleted`, 'success');
+                  setDeleteGemTarget(null);
+                  {
+                    const startAfterDoc = gemPageIndex === 0 ? null : (gemCursors[gemPageIndex - 1] || null);
+                    fetchGemstones(gemPageIndex, startAfterDoc);
+                  }
+                } catch (err) {
+                  console.error(err);
+                  showSnackbar('Delete failed. Check Firebase config.', 'error');
+                }
+              }}
+              gemName={deleteGemTarget?.name}
+            />
+          </>
+        )}
+        {section === 'collections' && (
+          <CollectionManager />
+        )}
+      </Box>
+
+      {(section === 'jewelry' || section === 'gems') && (
+        <>
+          {/* Dialogs */}
+          <ProductFormDialog
+            open={formOpen}
+            onClose={() => { setFormOpen(false); setEditProduct(null); }}
+            onSaved={fetchProducts}
+            editProduct={editProduct}
+            defaultCategory={section === 'jewelry' ? 'Jewelry' : 'Gem'}
+          />
+          <DeleteDialog
+            open={Boolean(deleteTarget)}
+            onClose={() => setDeleteTarget(null)}
+            onConfirm={handleDeleteConfirm}
+            productName={deleteTarget?.name}
+          />
+        </>
+      )}
+    </Box>
+  );
+};
+
+// ─────────────────────────────────────────────
+// ADMIN PAGE — root component
+// ─────────────────────────────────────────────
+const AdminPage = ({ mode = 'dark', onToggleColorMode = () => {} }) => {
+  const [unlocked, setUnlocked] = useState(() =>
+    sessionStorage.getItem('admin_unlocked') === 'true'
+  );
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('admin_unlocked');
+    setUnlocked(false);
+  };
+
+  if (!unlocked) {
+    return <PasswordGate onUnlock={() => setUnlocked(true)} mode={mode} onToggleColorMode={onToggleColorMode} />;
+  }
+
+  return <AdminDashboard onLogout={handleLogout} mode={mode} onToggleColorMode={onToggleColorMode} />;
+};
+
+export default AdminPage;

@@ -1,0 +1,89 @@
+html,
+body,
+#root {
+	width: 100%;
+	margin: 0;
+}
+
+body {
+	overflow-x: hidden;
+}
+
+.lumina-grid-col {
+	display: flex;
+	min-width: 0;
+}
+
+.lumina-grid-col > * {
+	width: 100%;
+}
+
+.lumina-section-container {
+	padding-left: 1rem;
+	padding-right: 1rem;
+}
+
+@media (min-width: 576px) {
+	.lumina-section-container {
+		padding-left: 1.25rem;
+		padding-right: 1.25rem;
+	}
+}
+
+@media (min-width: 992px) {
+	.lumina-section-container {
+		padding-left: 1.5rem;
+		padding-right: 1.5rem;
+	}
+}
+
+/* ── Gem Hero Animations ─────────────────────────────────────────────────── */
+
+/* Orbiting gems: parent rotates, child counter-rotates so gem stays upright */
+@keyframes orbit-cw {
+	0%   { transform: translate(-50%, -50%) rotate(0deg)   translateX(var(--orbit-r)) rotate(0deg); }
+	100% { transform: translate(-50%, -50%) rotate(360deg)  translateX(var(--orbit-r)) rotate(-360deg); }
+}
+@keyframes orbit-ccw {
+	0%   { transform: translate(-50%, -50%) rotate(0deg)    translateX(var(--orbit-r)) rotate(0deg); }
+	100% { transform: translate(-50%, -50%) rotate(-360deg) translateX(var(--orbit-r)) rotate(360deg); }
+}
+
+/* Central gem float */
+@keyframes gem-float {
+	0%, 100% { transform: translate(-50%, -50%) translateY(0px) rotate(-1deg); }
+	50%       { transform: translate(-50%, -50%) translateY(-14px) rotate(1deg); }
+}
+
+/* Background glow pulse */
+@keyframes gem-glow-pulse {
+	0%, 100% { opacity: 0.45; transform: translate(-50%, -50%) scale(1); }
+	50%       { opacity: 0.9;  transform: translate(-50%, -50%) scale(1.18); }
+}
+
+/* Orbit ring shimmer */
+@keyframes ring-pulse {
+	0%, 100% { opacity: 0.2; }
+	50%       { opacity: 0.55; }
+}
+
+/* Sparkle twinkle */
+@keyframes gem-sparkle {
+	0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+	25%, 75%  { opacity: 1; }
+	50%       { opacity: 0.9; transform: scale(1) rotate(180deg); }
+}
+
+/* Shimmer sweep across gem face */
+@keyframes gem-shimmer {
+	0%   { opacity: 0;   transform: translateX(-180%) skewX(-18deg); }
+	30%  { opacity: 0.5; }
+	100% { opacity: 0;   transform: translateX(280%)  skewX(-18deg); }
+}
+
+/* Colour pulse on orbiting gem dots */
+@keyframes gem-glow-dot {
+	0%, 100% { box-shadow: 0 0 6px var(--dot-color), 0 0 12px var(--dot-color); }
+	50%       { box-shadow: 0 0 14px var(--dot-color), 0 0 28px var(--dot-color); }
+}
+
