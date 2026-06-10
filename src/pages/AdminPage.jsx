@@ -11,6 +11,7 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DiamondIcon from '@mui/icons-material/Diamond';
 import EditIcon from '@mui/icons-material/Edit';
+import EmailIcon from '@mui/icons-material/Email';
 import HomeIcon from '@mui/icons-material/Home';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import LockIcon from '@mui/icons-material/Lock';
@@ -76,6 +77,7 @@ import {
 import { migrateProductsCollection } from '../utils/migrateProducts';
 import { onAuthStateChanged } from 'firebase/auth';
 import CollectionManager from '../components/admin/CollectionManager';
+import MessagesManager from '../components/admin/MessagesManager';
 import { CATEGORY_OPTIONS, GEMSTONE_CATEGORIES, GEMSTONE_MONTHS, GEMSTONE_STATUS_OPTIONS } from '../utils/constants';
 import { formatCurrency } from '../utils/formatCurrency';
 
@@ -1394,7 +1396,7 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
               variant="h5"
               sx={{ fontFamily: '"Playfair Display", serif' }}
             >
-              {section === 'jewelry' ? 'Jewelry Management' : section === 'gems' ? 'Gems Management' : section === 'gemstones' ? 'Gemstone Guide' : section === 'orders' ? 'Orders Management' : 'Collection Management'}
+              {section === 'jewelry' ? 'Jewelry Management' : section === 'gems' ? 'Gems Management' : section === 'gemstones' ? 'Gemstone Guide' : section === 'orders' ? 'Orders Management' : section === 'messages' ? 'Messages' : 'Collection Management'}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <Tooltip title="Jewelry">
@@ -1455,6 +1457,18 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
                 >
                   <ShoppingBagIcon sx={{ mr: { xs: 0, sm: 1 }, fontSize: { xs: 20, sm: 18 } }} />
                   <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Orders</Box>
+                </Button>
+              </Tooltip>
+              <Tooltip title="Messages">
+                <Button
+                  variant={section === 'messages' ? 'contained' : 'outlined'}
+                  color="secondary"
+                  size="small"
+                  onClick={() => setSection('messages')}
+                  sx={{ minWidth: { xs: 0, sm: 64 }, px: { xs: 1.5, sm: 2 } }}
+                >
+                  <EmailIcon sx={{ mr: { xs: 0, sm: 1 }, fontSize: { xs: 20, sm: 18 } }} />
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Messages</Box>
                 </Button>
               </Tooltip>
             </Box>
@@ -2222,6 +2236,9 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
               </>
             )}
           </Box>
+        )}
+        {section === 'messages' && (
+          <MessagesManager />
         )}
       </Box>
 

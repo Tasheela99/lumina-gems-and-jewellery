@@ -122,6 +122,7 @@ const toReadableFirebaseError = (error) => {
 };
 
 // ── Firestore collection reference ─────────────────────────────────────────
+const MESSAGES_COLLECTION = 'messages';
 const GEMS_SHOP_COLLECTION = 'gems';
 const JEWELRY_COLLECTION = 'jewellery';
 const STORAGE_FOLDER = 'products/';
@@ -1277,5 +1278,86 @@ export const updateOrderStatus = async (orderId, newStatus) => {
   } catch (error) {
     console.error('updateOrderStatus error:', error);
     throw toReadableFirebaseError(error);
+  }
+};
+
+// ─────────────────────────────────────────────
+// MESSAGES (CONTACT FORM)
+// ─────────────────────────────────────────────
+
+export const submitContactMessage = async (data) => {
+  try {
+    const docRef = await addDoc(collection(db, MESSAGES_COLLECTION), {
+      ...data,
+      status: 'Unread',
+      createdAt: serverTimestamp(),
+    });
+    return { id: docRef.id, success: true };
+  } catch (error) {
+    console.error('submitContactMessage error:', error);
+    throw toReadableFirebaseError(error);
+  }
+};
+
+export const subscribeToMessagesPage = (params, callback) => {
+  try {
+    const { pageSize = 10, startAfterDoc = null } = params;
+    let base = [collection(db, MESSAGES_COLLECTION), orderBy('createdAt', 'desc')];
+    base.push(limit(pageSize + 1));
+    if (startAfterDoc) base.push(startAfter(startAfterDoc));
+
+    const q = query(...base);
+
+    return onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs;
+      const hasMore = docs.length > pageSize;
+      const itemsToReturn = hasMore ? docs.slice(0, pageSize) : docs;
+      
+      callback({
+        items: itemsToReturn.map((d) => ({ id: d.id, ...d.data() })),
+        lastDoc: itemsToReturn.length > 0 ? itemsToReturn[itemsToReturn.length - 1] : null,
+        hasMore,
+      });
+    }, (error) => {
+      console.error('subscribeToMessagesPage error:', error);
+    });
+  } catch (error) {
+    console.error('subscribeToMessagesPage setup error:', error);
+    return () => {};
+  }
+};
+
+export const updateMessageStatus = async (messageId, status) => {
+  try {
+    const docRef = doc(db, MESSAGES_COLLECTION, messageId);
+    await updateDoc(docRef, { status });
+    return { success: true };
+  } catch (error) {
+    console.error('updateMessageStatus error:', error);
+    throw toReadableFirebaseError(error);
+  }
+};
+
+export const deleteMessage = async (messageId) => {
+  try {
+    const docRef = doc(db, MESSAGES_COLLECTION, messageId);
+    await deleteDoc(docRef);
+    return { success: true };
+  } catch (error) {
+    console.error('deleteMessage error:', error);
+    throw toReadableFirebaseError(error);
+  }
+};
+
+export const getUnreadMessagesCount = async () => {
+  try {
+    const coll = collection(db, MESSAGES_COLLECTION);
+    const q = query(coll, where('status', '==', 'Unread'));
+    const snapshot = await getCountFromServer(q);
+    return snapshot.data().count;
+  } catch (error) {
+    // If index doesn't exist, ignore error and return 0 or log
+    console.warn('getUnreadMessagesCount error (likely missing index):', error);
+    return 0;
   }
 };

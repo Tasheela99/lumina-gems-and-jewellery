@@ -12,7 +12,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useEffect,  useState  } from 'react';
+import { useEffect, useState } from 'react';
+import { useSnackbar } from '../components/SnackbarAlert';
+import { submitContactMessage } from '../services/firebase';
 import { updateSEO } from '../utils/seo';
 
 const INQUIRY_TYPES = [
@@ -39,14 +41,30 @@ const ContactPage = () => {
     message: '',
   });
 
+  const [loading, setLoading] = useState(false);
+  const { showSnackbar } = useSnackbar();
+
   const handleChange = (e) =>
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Form submission UI only — wire up backend as needed
-    alert('Thank you! We will be in touch shortly.');
-    setForm({ name: '', email: '', phone: '', inquiryType: 'general', message: '' });
+    if (!form.name || !form.email || !form.message) {
+      showSnackbar('Please fill in all required fields.', 'error');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await submitContactMessage(form);
+      showSnackbar('Message sent! We will be in touch shortly.', 'success');
+      setForm({ name: '', email: '', phone: '', inquiryType: 'general', message: '' });
+    } catch (err) {
+      console.error('Submission error:', err);
+      showSnackbar('Failed to send message. Please try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -167,9 +185,10 @@ const ContactPage = () => {
                     color="secondary"
                     size="large"
                     endIcon={<SendIcon />}
+                    disabled={loading}
                     sx={{ px: 5, py: 1.5 }}
                   >
-                    Send Message
+                    {loading ? 'Sending...' : 'Send Message'}
                   </Button>
                 </Box>
               </Box>
