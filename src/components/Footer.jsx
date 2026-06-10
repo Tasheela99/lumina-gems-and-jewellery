@@ -34,8 +34,8 @@ const Footer = () => {
         <Box className="row g-4 justify-content-between">
           <Box className="col-12 col-md-4">
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-              <DiamondIcon sx={{ color: "#C9A84C", fontSize: 28 }} />
-              <Box>
+              <img src="/favicon.png" alt="Lumina Logo" style={{ width: 150, height: 150 }} />
+              {/* <Box>
                 <Typography
                   sx={{
                     fontFamily: '"Playfair Display", serif',
@@ -55,7 +55,7 @@ const Footer = () => {
                 >
                   GEMS & JEWELRY
                 </Typography>
-              </Box>
+              </Box> */}
             </Box>
 
             <Typography

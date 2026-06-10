@@ -1,0 +1,29 @@
+name: Deploy to Firebase Hosting on merge
+'on':
+  push:
+    branches:
+      - main
+permissions:
+  checks: write
+  contents: read
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install
+      - run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: 'AIzaSyAruILIjn0RxW-wb9vgsq9mtVSgBhjRvZs'
+          VITE_FIREBASE_AUTH_DOMAIN: 'lumina-gems-and-jewellery.firebaseapp.com'
+          VITE_FIREBASE_PROJECT_ID: 'lumina-gems-and-jewellery'
+          VITE_FIREBASE_STORAGE_BUCKET: 'lumina-gems-and-jewellery.firebasestorage.app'
+          VITE_FIREBASE_MESSAGING_SENDER_ID: '502319699491'
+          VITE_FIREBASE_APP_ID: '1:502319699491:web:40417baaba193ea3c34396'
+          VITE_ADMIN_PASSWORD: '${{ secrets.VITE_ADMIN_PASSWORD }}'
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_LUMINA_GEMS_AND_JEWELLERY }}'
+          channelId: live
+          projectId: lumina-gems-and-jewellery

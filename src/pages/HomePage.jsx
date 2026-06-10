@@ -141,49 +141,49 @@ const SECTION_SPACING = { xs: 8, md: 12 };
 // Negative animation-delay offsets start angle: delay = -(angle/360) × period
 const ORBIT_GEMS = [
   // Outer ring CW 32 s — 4 gems at 0°/90°/180°/270°
-  { r: 320, color: "#E53935", name: "Ruby",       cw: true,  dur: "32s", delay: "0s",     size: 26 },
-  { r: 320, color: "#1E88E5", name: "Sapphire",   cw: true,  dur: "32s", delay: "-8s",    size: 24 },
-  { r: 320, color: "#27AE60", name: "Emerald",    cw: true,  dur: "32s", delay: "-16s",   size: 22 },
-  { r: 320, color: "#8E24AA", name: "Amethyst",   cw: true,  dur: "32s", delay: "-24s",   size: 24 },
+  { r: 320, color: "#E53935", name: "Ruby", cw: true, dur: "32s", delay: "0s", size: 26 },
+  { r: 320, color: "#1E88E5", name: "Sapphire", cw: true, dur: "32s", delay: "-8s", size: 24 },
+  { r: 320, color: "#27AE60", name: "Emerald", cw: true, dur: "32s", delay: "-16s", size: 22 },
+  { r: 320, color: "#8E24AA", name: "Amethyst", cw: true, dur: "32s", delay: "-24s", size: 24 },
   // Middle ring CCW 22 s — 3 gems at 0°/120°/240°
-  { r: 210, color: "#F57C00", name: "Topaz",      cw: false, dur: "22s", delay: "0s",     size: 20 },
-  { r: 210, color: "#00ACC1", name: "Aquamarine", cw: false, dur: "22s", delay: "-7.3s",  size: 18 },
+  { r: 210, color: "#F57C00", name: "Topaz", cw: false, dur: "22s", delay: "0s", size: 20 },
+  { r: 210, color: "#00ACC1", name: "Aquamarine", cw: false, dur: "22s", delay: "-7.3s", size: 18 },
   { r: 210, color: "#EC407A", name: "RoseQuartz", cw: false, dur: "22s", delay: "-14.7s", size: 20 },
   // Inner ring CW 13 s — 2 gems at 0°/180°
-  { r: 110, color: "#C9A84C", name: "Gold",       cw: true,  dur: "13s", delay: "0s",     size: 15 },
-  { r: 110, color: "#90CAF9", name: "Aqua",       cw: true,  dur: "13s", delay: "-6.5s",  size: 13 },
+  { r: 110, color: "#C9A84C", name: "Gold", cw: true, dur: "13s", delay: "0s", size: 15 },
+  { r: 110, color: "#90CAF9", name: "Aqua", cw: true, dur: "13s", delay: "-6.5s", size: 13 },
 ];
 
 // Large edge-floating DiamondIcons at very low opacity
 const BG_FLOATS = [
-  { top: "7%",  left:  "4%",   size: 56, opacity: 0.07, delay: "0s",   dur: "9s"  },
-  { top: "11%", right: "4%",   size: 40, opacity: 0.06, delay: "2.1s", dur: "11s" },
-  { top: "71%", left:  "3%",   size: 68, opacity: 0.05, delay: "1.3s", dur: "8s"  },
-  { top: "76%", right: "3%",   size: 46, opacity: 0.06, delay: "3.2s", dur: "10s" },
-  { top: "40%", left:  "1%",   size: 30, opacity: 0.08, delay: "0.8s", dur: "12s" },
-  { top: "36%", right: "1%",   size: 34, opacity: 0.07, delay: "4.0s", dur: "9s"  },
-  { top: "54%", left:  "11%",  size: 22, opacity: 0.05, delay: "1.6s", dur: "7s"  },
-  { top: "23%", right: "11%",  size: 28, opacity: 0.06, delay: "2.8s", dur: "13s" },
+  { top: "7%", left: "4%", size: 56, opacity: 0.07, delay: "0s", dur: "9s" },
+  { top: "11%", right: "4%", size: 40, opacity: 0.06, delay: "2.1s", dur: "11s" },
+  { top: "71%", left: "3%", size: 68, opacity: 0.05, delay: "1.3s", dur: "8s" },
+  { top: "76%", right: "3%", size: 46, opacity: 0.06, delay: "3.2s", dur: "10s" },
+  { top: "40%", left: "1%", size: 30, opacity: 0.08, delay: "0.8s", dur: "12s" },
+  { top: "36%", right: "1%", size: 34, opacity: 0.07, delay: "4.0s", dur: "9s" },
+  { top: "54%", left: "11%", size: 22, opacity: 0.05, delay: "1.6s", dur: "7s" },
+  { top: "23%", right: "11%", size: 28, opacity: 0.06, delay: "2.8s", dur: "13s" },
 ];
 
 // AutoAwesome sparkles scattered across the hero
 const SPARKLES = [
-  { top: "13%",  left:  "21%",  size: 22, delay: "0s"   },
-  { top: "8%",   right: "23%",  size: 17, delay: "1.5s" },
-  { top: "79%",  left:  "17%",  size: 19, delay: "2.2s" },
-  { top: "81%",  right: "19%",  size: 15, delay: "0.8s" },
-  { top: "47%",  left:  "27%",  size: 13, delay: "3.1s" },
-  { top: "51%",  right: "25%",  size: 15, delay: "1.9s" },
-  { top: "29%",  left:  "45%",  size: 11, delay: "2.7s" },
-  { top: "64%",  right: "43%",  size: 12, delay: "0.5s" },
+  { top: "13%", left: "21%", size: 22, delay: "0s" },
+  { top: "8%", right: "23%", size: 17, delay: "1.5s" },
+  { top: "79%", left: "17%", size: 19, delay: "2.2s" },
+  { top: "81%", right: "19%", size: 15, delay: "0.8s" },
+  { top: "47%", left: "27%", size: 13, delay: "3.1s" },
+  { top: "51%", right: "25%", size: 15, delay: "1.9s" },
+  { top: "29%", left: "45%", size: 11, delay: "2.7s" },
+  { top: "64%", right: "43%", size: 12, delay: "0.5s" },
 ];
 
 // ── GemBackground ─────────────────────────────────────────────────────────────
 // Absolutely fills the hero, sits at z-index 0 behind all text content.
 const GemBackground = ({ isDark }) => {
-  const gold  = isDark ? "#C9A84C" : "#A57E1E";
+  const gold = isDark ? "#C9A84C" : "#A57E1E";
   const green = isDark ? "#1B4332" : "#2D6A4F";
-  const ring  = isDark ? "rgba(201,168,76," : "rgba(165,126,30,";
+  const ring = isDark ? "rgba(201,168,76," : "rgba(165,126,30,";
 
   return (
     <Box sx={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
@@ -532,7 +532,7 @@ const HomePage = () => {
             animation: "bounce 2s ease-in-out infinite",
             "@keyframes bounce": {
               "0%, 100%": { transform: "translateX(-50%) translateY(0)" },
-              "50%":       { transform: "translateX(-50%) translateY(8px)" },
+              "50%": { transform: "translateX(-50%) translateY(8px)" },
             },
           }}
         >
@@ -549,7 +549,7 @@ const HomePage = () => {
           background: isDark
             ? "#0D0D0D"
             : "linear-gradient(135deg, #2D6A4F 0%, #1B4332 50%, #40916C 100%)",
-          borderTop:    isDark ? "1px solid rgba(201,168,76,0.08)" : "none",
+          borderTop: isDark ? "1px solid rgba(201,168,76,0.08)" : "none",
           borderBottom: isDark ? "1px solid rgba(201,168,76,0.08)" : "none",
           py: { xs: 5, md: 6 },
           position: "relative",

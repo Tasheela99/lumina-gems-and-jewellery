@@ -9,24 +9,24 @@ import LightModeIcon from '@mui/icons-material/LightMode';
 import MenuIcon from '@mui/icons-material/Menu';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import {
-    AppBar,
-    Badge,
-    Box,
-    Button,
-    Collapse,
-    Divider,
-    Drawer,
-    IconButton,
-    List,
-    ListItem,
-    ListItemButton,
-    ListItemText,
-    Menu,
-    MenuItem,
-    Slide,
-    Toolbar,
-    Typography,
-    useScrollTrigger,
+  AppBar,
+  Badge,
+  Box,
+  Button,
+  Collapse,
+  Divider,
+  Drawer,
+  IconButton,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Slide,
+  Toolbar,
+  Typography,
+  useScrollTrigger,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -109,8 +109,8 @@ const Navbar = ({ mode, onToggleColorMode }) => {
               sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', flexGrow: 1 }}
               onClick={() => navigate('/')}
             >
-              <DiamondIcon sx={{ color: 'secondary.main', fontSize: 28 }} />
-              <Box>
+              <img src="/favicon.png" alt="Lumina Logo" style={{ width: 64, height: 64 }} />
+              {/* <Box>
                 <Typography
                   variant="h6"
                   sx={{
@@ -135,7 +135,7 @@ const Navbar = ({ mode, onToggleColorMode }) => {
                 >
                   GEMS &amp; JEWELRY
                 </Typography>
-              </Box>
+              </Box> */}
             </Box>
 
             {/* Desktop nav */}
@@ -360,7 +360,7 @@ const Navbar = ({ mode, onToggleColorMode }) => {
       >
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <DiamondIcon sx={{ color: 'secondary.main', fontSize: 22 }} />
+            <img src="/favicon.png" alt="Lumina Logo" style={{ width: 24, height: 24 }} />
             <Typography
               sx={{ fontFamily: '"Playfair Display", serif', fontSize: '1rem', color: 'text.primary' }}
             >
