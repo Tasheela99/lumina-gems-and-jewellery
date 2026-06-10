@@ -22,7 +22,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useSnackbar } from '../../components/SnackbarAlert';
-import { deleteCollection, getCollections } from '../../services/firebase';
+import { deleteCollection, getCollections, subscribeToCollectionsPage } from '../../services/firebase';
 import { COLLECTION_STATUS_OPTIONS } from '../../utils/constants';
 import CollectionFormDialog from './CollectionFormDialog';
 
@@ -58,22 +58,40 @@ const CollectionManager = () => {
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const fetchAllCollections = useCallback(async () => {
+  const [pageIndex, setPageIndex] = useState(0);
+  const [cursors, setCursors] = useState([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [unsubscribeCollections, setUnsubscribeCollections] = useState(null);
+
+  const fetchCollectionsPage = useCallback((pIndex = 0, startAfterDoc = null) => {
     setLoading(true);
-    try {
-      const data = await getCollections();
-      setCollections(data);
-    } catch (err) {
-      console.error(err);
-      showSnackbar('Failed to load collections. Check Firebase config.', 'error');
-    } finally {
+    const unsubscribe = subscribeToCollectionsPage({ pageSize: 10, startAfterDoc }, (result) => {
+      setCollections(result.items);
+      setHasMore(Boolean(result.hasMore));
+      if (result.lastDoc) {
+        setCursors((prev) => {
+          const next = [...prev];
+          next[pIndex] = result.lastDoc;
+          return next;
+        });
+      }
       setLoading(false);
-    }
-  }, [showSnackbar]);
+    });
+
+    setUnsubscribeCollections((prev) => {
+      if (prev) prev();
+      return () => unsubscribe();
+    });
+  }, []);
 
   useEffect(() => {
-    fetchAllCollections();
-  }, [fetchAllCollections]);
+    fetchCollectionsPage(0, null);
+    setPageIndex(0);
+    setCursors([]);
+    return () => {
+      if (unsubscribeCollections) unsubscribeCollections();
+    };
+  }, [fetchCollectionsPage]);
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
@@ -86,7 +104,7 @@ const CollectionManager = () => {
       
       await deleteCollection(deleteTarget.id, allImages);
       showSnackbar(`Collection "${deleteTarget.name}" deleted`, 'success');
-      fetchAllCollections();
+      // Real-time listener handles refresh
     } catch (err) {
       console.error(err);
       showSnackbar('Delete failed. Check Firebase config.', 'error');
@@ -143,15 +161,18 @@ const CollectionManager = () => {
       {loading ? (
         <LoadingSpinner message="Loading collections..." />
       ) : (
+        <>
         <TableContainer
           component={Paper}
           sx={{
             bgcolor: 'background.paper',
             border: '1px solid rgba(255,255,255,0.06)',
             borderRadius: 2,
+            overflowX: 'auto',
+            display: { xs: 'none', md: 'block' },
           }}
         >
-          <Table>
+          <Table sx={{ minWidth: 800 }}>
             <TableHead>
               <TableRow sx={{ '& th': { borderColor: 'rgba(201,168,76,0.1)', color: 'secondary.main', letterSpacing: '0.08em', fontSize: '0.72rem' } }}>
                 <TableCell>COLLECTION</TableCell>
@@ -278,13 +299,80 @@ const CollectionManager = () => {
             </TableBody>
           </Table>
         </TableContainer>
+
+        {/* Mobile Cards */}
+        <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 2, mt: 2 }}>
+          {filtered.length === 0 ? (
+            <Typography sx={{ color: 'text.secondary', textAlign: 'center', py: 4 }}>
+              {search || statusFilter ? 'No collections match your filters.' : 'No collections yet. Add your first one!'}
+            </Typography>
+          ) : (
+            filtered.map((col) => (
+              <Paper key={col.id} sx={{ p: 2, border: '1px solid rgba(255,255,255,0.06)', borderRadius: 2, display: 'flex', gap: 2, bgcolor: 'background.paper', alignItems: 'center' }}>
+                <Box sx={{ width: 50, height: 50, borderRadius: 1, overflow: 'hidden', flexShrink: 0, bgcolor: '#1A1A1A' }}>
+                  {col.thumbnailUrl ? <Box component="img" src={col.thumbnailUrl} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Typography variant="caption" sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.disabled' }}>No Img</Typography>}
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>{col.name}</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>{col.code}</Typography>
+                  <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>{col.type || '—'}</Typography>
+                    <Chip label={col.status || 'Draft'} size="small" sx={{ height: 16, fontSize: '0.6rem' }} color={col.status === 'Active' ? 'success' : 'default'} />
+                    {col.featured && <Typography variant="caption" sx={{ color: 'secondary.main', fontSize: '0.6rem' }}>★ Featured</Typography>}
+                  </Box>
+                </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                  <IconButton size="small" onClick={() => { setEditTarget(col); setFormOpen(true); }}><EditIcon fontSize="small" /></IconButton>
+                  <IconButton size="small" onClick={() => setDeleteTarget(col)} color="error"><DeleteIcon fontSize="small" /></IconButton>
+                </Box>
+              </Paper>
+            ))
+          )}
+        </Box>
+        
+        {/* Shared Pagination row */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 2, px: 2, mt: 2, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid rgba(255,255,255,0.06)' }}>
+          <Typography variant="caption" color="text.secondary">
+            Page {pageIndex + 1}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              size="small"
+              variant="outlined"
+              color="secondary"
+              disabled={pageIndex === 0}
+              onClick={() => {
+                const prevIndex = pageIndex - 1;
+                fetchCollectionsPage(prevIndex, prevIndex === 0 ? null : cursors[prevIndex - 1]);
+                setPageIndex(prevIndex);
+              }}
+            >
+              Previous
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              color="secondary"
+              disabled={!hasMore}
+              onClick={() => {
+                const nextIndex = pageIndex + 1;
+                fetchCollectionsPage(nextIndex, cursors[pageIndex]);
+                setPageIndex(nextIndex);
+              }}
+            >
+              Next
+            </Button>
+          </Box>
+        </Box>
+
+        </>
       )}
 
       {formOpen && (
         <CollectionFormDialog
           open={formOpen}
           onClose={() => { setFormOpen(false); setEditTarget(null); }}
-          onSaved={fetchAllCollections}
+          onSaved={() => {}} // Handled by real-time listener
           editCollection={editTarget}
         />
       )}

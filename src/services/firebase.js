@@ -14,8 +14,11 @@ import {
   endAt,
   getDoc,
   getDocs,
+  getCountFromServer,
   getFirestore,
+  increment,
   limit,
+  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
@@ -24,6 +27,7 @@ import {
   startAt,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import {
   deleteObject,
@@ -125,6 +129,9 @@ const STORAGE_FOLDER = 'products/';
 // Gemstone learning module
 const GEMSTONES_COLLECTION = 'gemstones';
 const GEMSTONES_STORAGE_FOLDER = 'gemstones/';
+
+// Orders collection
+const ORDERS_COLLECTION = 'orders';
 
 const toMillis = (value) => {
   if (!value) return 0;
@@ -245,6 +252,120 @@ export const addProduct = async (data, imageFiles = []) => {
 // GET ALL PRODUCTS (optional category filter)
 // category: 'Gem' | 'Jewelry' | undefined
 // ─────────────────────────────────────────────
+export const subscribeToProducts = (callback, category = null) => {
+  try {
+    if (category === 'Gem') {
+      const q = query(collection(db, GEMS_SHOP_COLLECTION), orderBy('createdAt', 'desc'));
+      return onSnapshot(q, (snapshot) => callback(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))));
+    } else if (category === 'Jewelry') {
+      const q = query(collection(db, JEWELRY_COLLECTION), orderBy('createdAt', 'desc'));
+      return onSnapshot(q, (snapshot) => callback(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))));
+    } else {
+      const gemsQuery = query(collection(db, GEMS_SHOP_COLLECTION), orderBy('createdAt', 'desc'));
+      const jewelryQuery = query(collection(db, JEWELRY_COLLECTION), orderBy('createdAt', 'desc'));
+      
+      let gemsData = [];
+      let jewelryData = [];
+      let gemsLoaded = false;
+      let jewelryLoaded = false;
+
+      const notify = () => {
+        if (gemsLoaded && jewelryLoaded) {
+          callback(sortByCreatedAtDesc([...gemsData, ...jewelryData]));
+        }
+      };
+
+      const unsubGems = onSnapshot(gemsQuery, (snapshot) => {
+        gemsData = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        gemsLoaded = true;
+        notify();
+      });
+
+      const unsubJewelry = onSnapshot(jewelryQuery, (snapshot) => {
+        jewelryData = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        jewelryLoaded = true;
+        notify();
+      });
+
+      return () => {
+        unsubGems();
+        unsubJewelry();
+      };
+    }
+  } catch (error) {
+    console.error('subscribeToProducts error:', error);
+    return () => {};
+  }
+};
+
+export const subscribeToProductsPage = (params, callback) => {
+  try {
+    const { pageSize = 10, startAfterDoc = null, category } = params;
+    
+    if (!category) {
+      console.warn('subscribeToProductsPage requires a category');
+      return () => {};
+    }
+    
+    const collectionName = category === 'Gem' ? GEMS_SHOP_COLLECTION : JEWELRY_COLLECTION;
+    let base = [collection(db, collectionName), orderBy('createdAt', 'desc')];
+    base.push(limit(pageSize + 1));
+    if (startAfterDoc) base.push(startAfter(startAfterDoc));
+
+    const q = query(...base);
+
+    return onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs;
+      const hasMore = docs.length > pageSize;
+      const itemsToReturn = hasMore ? docs.slice(0, pageSize) : docs;
+      
+      callback({
+        items: itemsToReturn.map((d) => ({ id: d.id, ...d.data() })),
+        lastDoc: itemsToReturn.length > 0 ? itemsToReturn[itemsToReturn.length - 1] : null,
+        hasMore,
+      });
+    }, (error) => {
+      console.error('subscribeToProductsPage error:', error);
+    });
+  } catch (error) {
+    console.error('subscribeToProductsPage setup error:', error);
+    return () => {};
+  }
+};
+
+export const getProductStats = async () => {
+  try {
+    const [gemsCountSnap, jewelryCountSnap] = await Promise.all([
+      getCountFromServer(collection(db, GEMS_SHOP_COLLECTION)),
+      getCountFromServer(collection(db, JEWELRY_COLLECTION))
+    ]);
+
+    const gemsCount = gemsCountSnap.data().count;
+    const jewelryCount = jewelryCountSnap.data().count;
+
+    let outOfStock = 0;
+    try {
+      const [gemsOos, jewelryOos] = await Promise.all([
+        getCountFromServer(query(collection(db, GEMS_SHOP_COLLECTION), where('stock', '==', 0))),
+        getCountFromServer(query(collection(db, JEWELRY_COLLECTION), where('stock', '==', 0)))
+      ]);
+      outOfStock = gemsOos.data().count + jewelryOos.data().count;
+    } catch (e) {
+      console.warn("Could not get out of stock count efficiently, might need an index. Ignoring out of stock stats.");
+    }
+
+    return {
+      total: gemsCount + jewelryCount,
+      gems: gemsCount,
+      jewelry: jewelryCount,
+      outOfStock
+    };
+  } catch (error) {
+    console.error('getProductStats error:', error);
+    return { total: 0, gems: 0, jewelry: 0, outOfStock: 0 };
+  }
+};
+
 export const getProducts = async (category = null) => {
   try {
     if (category === 'Gem') {
@@ -507,6 +628,31 @@ export const addGemstone = async (data, imageFiles = []) => {
 
 // Get all gemstones (optional filtering)
 // filters: { month?: string|null, category?: string|null, categoriesAny?: string[], status?: string|null }
+export const subscribeToGemstones = (callback, filters = {}) => {
+  try {
+    const { month = null, category = null, categoriesAny = null, status = null } = filters || {};
+
+    const base = [collection(db, GEMSTONES_COLLECTION)];
+
+    if (status) base.push(where('status', '==', status));
+    if (month) base.push(where('month', '==', month));
+    if (category) base.push(where('categories', 'array-contains', category));
+    if (!category && Array.isArray(categoriesAny) && categoriesAny.length > 0) {
+      base.push(where('categories', 'array-contains-any', categoriesAny.slice(0, 10)));
+    }
+
+    const q = query(...base, orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    }, (error) => {
+      console.error('subscribeToGemstones error:', error);
+    });
+  } catch (error) {
+    console.error('subscribeToGemstones setup error:', error);
+    return () => {};
+  }
+};
+
 export const getGemstones = async (filters = {}) => {
   try {
     const { month = null, category = null, categoriesAny = null, status = null } = filters || {};
@@ -691,6 +837,61 @@ export const deleteGemstone = async (id, imageUrlsOrUrl = null) => {
   }
 };
 
+export const subscribeToGemstonesPage = (options = {}, callback) => {
+  const {
+    pageSize = 10,
+    startAfterDoc = null,
+    month = null,
+    status = null,
+    category = null,
+    categoriesAny = null,
+    searchPrefix = '',
+  } = options || {};
+
+  try {
+    const clauses = [collection(db, GEMSTONES_COLLECTION)];
+
+    if (status) clauses.push(where('status', '==', status));
+    if (month) clauses.push(where('month', '==', month));
+    if (category) clauses.push(where('categories', 'array-contains', category));
+    if (!category && Array.isArray(categoriesAny) && categoriesAny.length > 0) {
+      clauses.push(where('categories', 'array-contains-any', categoriesAny.slice(0, 10)));
+    }
+
+    const term = String(searchPrefix || '').trim().toLowerCase();
+    const isSearching = term.length > 0;
+
+    if (isSearching) {
+      clauses.push(orderBy('nameLower', 'asc'));
+      clauses.push(startAt(term));
+      clauses.push(endAt(`${term}\uf8ff`));
+    } else {
+      clauses.push(orderBy('createdAt', 'desc'));
+    }
+
+    if (startAfterDoc) {
+      clauses.push(startAfter(startAfterDoc));
+    }
+
+    clauses.push(limit(pageSize + 1));
+
+    const q = query(...clauses);
+    return onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs;
+      const hasMore = docs.length > pageSize;
+      const pageDocs = hasMore ? docs.slice(0, pageSize) : docs;
+      const items = pageDocs.map((d) => ({ id: d.id, ...d.data() }));
+      const lastDoc = pageDocs.length > 0 ? pageDocs[pageDocs.length - 1] : null;
+      callback({ items, hasMore, lastDoc });
+    }, (error) => {
+      console.error('subscribeToGemstonesPage error:', error);
+    });
+  } catch (error) {
+    console.error('subscribeToGemstonesPage setup error:', error);
+    return () => {};
+  }
+};
+
 // Paged read for admin lists
 // options: { pageSize, startAfterDoc, month, status, category, categoriesAny, searchPrefix }
 // Returns: { items, hasMore, lastDoc }
@@ -816,6 +1017,56 @@ export const addCollection = async (data, bannerFile = null, thumbnailFile = nul
   }
 };
 
+export const subscribeToCollections = (callback, filters = {}) => {
+  try {
+    const clauses = [collection(db, COLLECTIONS_COLLECTION)];
+    
+    if (filters.status) clauses.push(where('status', '==', filters.status));
+    if (filters.featured) clauses.push(where('featured', '==', true));
+    
+    clauses.push(orderBy('sortOrder', 'asc'));
+    clauses.push(orderBy('createdAt', 'desc'));
+
+    const q = query(...clauses);
+    return onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (error) => {
+      console.error('subscribeToCollections error:', error);
+    });
+  } catch (error) {
+    console.error('subscribeToCollections setup error:', error);
+    return () => {};
+  }
+};
+
+export const subscribeToCollectionsPage = (params, callback) => {
+  try {
+    const { pageSize = 10, startAfterDoc = null } = params;
+    let base = [collection(db, COLLECTIONS_COLLECTION), orderBy('createdAt', 'desc')];
+    base.push(limit(pageSize + 1));
+    if (startAfterDoc) base.push(startAfter(startAfterDoc));
+
+    const q = query(...base);
+
+    return onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs;
+      const hasMore = docs.length > pageSize;
+      const itemsToReturn = hasMore ? docs.slice(0, pageSize) : docs;
+      
+      callback({
+        items: itemsToReturn.map((d) => ({ id: d.id, ...d.data() })),
+        lastDoc: itemsToReturn.length > 0 ? itemsToReturn[itemsToReturn.length - 1] : null,
+        hasMore,
+      });
+    }, (error) => {
+      console.error('subscribeToCollectionsPage error:', error);
+    });
+  } catch (error) {
+    console.error('subscribeToCollectionsPage setup error:', error);
+    return () => {};
+  }
+};
+
 export const getCollections = async (filters = {}) => {
   try {
     const clauses = [collection(db, COLLECTIONS_COLLECTION)];
@@ -917,6 +1168,114 @@ export const deleteCollection = async (id, allImageUrls = []) => {
     return { success: true };
   } catch (error) {
     console.error('deleteCollection error:', error);
+    throw toReadableFirebaseError(error);
+  }
+};
+
+// ─────────────────────────────────────────────
+// ORDERS
+// Schema:
+// { customer: { fullName, email, address, phone, additionalPhone }, items: [], totalAmount: number, status: 'Pending'|'Completed'|'Cancelled', createdAt, updatedAt }
+// ─────────────────────────────────────────────
+
+export const placeOrder = async (orderData) => {
+  try {
+    const batch = writeBatch(db);
+
+    const orderRef = doc(collection(db, ORDERS_COLLECTION));
+    batch.set(orderRef, {
+      ...orderData,
+      status: 'Pending',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    for (const item of orderData.items) {
+      const targetCollection = item.category === 'Gem' ? GEMS_SHOP_COLLECTION : JEWELRY_COLLECTION;
+      const productRef = doc(db, targetCollection, item.id);
+      batch.update(productRef, {
+        stock: increment(-item.quantity)
+      });
+    }
+
+    await batch.commit();
+
+    return { id: orderRef.id, success: true };
+  } catch (error) {
+    console.error('placeOrder error:', error);
+    throw toReadableFirebaseError(error);
+  }
+};
+
+export const subscribeToOrders = (callback) => {
+  try {
+    const q = query(collection(db, ORDERS_COLLECTION), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    }, (error) => {
+      console.error('subscribeToOrders error:', error);
+    });
+  } catch (error) {
+    console.error('subscribeToOrders setup error:', error);
+    return () => {};
+  }
+};
+
+export const subscribeToOrdersPage = (params, callback) => {
+  try {
+    const { pageSize = 10, startAfterDoc = null } = params;
+    let base = [collection(db, ORDERS_COLLECTION), orderBy('createdAt', 'desc')];
+    base.push(limit(pageSize + 1));
+    if (startAfterDoc) base.push(startAfter(startAfterDoc));
+
+    const q = query(...base);
+
+    return onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs;
+      const hasMore = docs.length > pageSize;
+      const itemsToReturn = hasMore ? docs.slice(0, pageSize) : docs;
+      
+      callback({
+        items: itemsToReturn.map((d) => ({ id: d.id, ...d.data() })),
+        lastDoc: itemsToReturn.length > 0 ? itemsToReturn[itemsToReturn.length - 1] : null,
+        hasMore,
+      });
+    }, (error) => {
+      console.error('subscribeToOrdersPage error:', error);
+    });
+  } catch (error) {
+    console.error('subscribeToOrdersPage setup error:', error);
+    return () => {};
+  }
+};
+
+export const getOrders = async () => {
+  try {
+    const q = query(collection(db, ORDERS_COLLECTION), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    // Fallback if no index exists yet
+    if (isIndexPreconditionError(error)) {
+      const snapshot = await getDocs(query(collection(db, ORDERS_COLLECTION)));
+      const raw = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      return sortByCreatedAtDesc(raw);
+    }
+    console.error('getOrders error:', error);
+    throw toReadableFirebaseError(error);
+  }
+};
+
+export const updateOrderStatus = async (orderId, newStatus) => {
+  try {
+    const docRef = doc(db, ORDERS_COLLECTION, orderId);
+    await updateDoc(docRef, {
+      status: newStatus,
+      updatedAt: serverTimestamp(),
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('updateOrderStatus error:', error);
     throw toReadableFirebaseError(error);
   }
 };

@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import EmptyState from '../components/EmptyState';
 import GemstoneCard from '../components/GemstoneCard';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { getGemstones } from '../services/firebase';
+import { subscribeToGemstones } from '../services/firebase';
 import { updateSEO } from '../utils/seo';
 import {
     BIRTHSTONES_BY_MONTH,
@@ -50,23 +50,19 @@ const GemstoneGuidePage = () => {
   }, [language]);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getGemstones({
-          status: 'Active',
-          month: monthFilter || null,
-          category: categoryFilter || null,
-        });
-        setGemstones(data);
-      } catch (err) {
-        console.error(err);
-        setError('Failed to load gemstones. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    setLoading(true);
+    setError(null);
+
+    const unsubscribe = subscribeToGemstones((data) => {
+      setGemstones(data);
+      setLoading(false);
+    }, {
+      status: 'Active',
+      month: monthFilter || null,
+      category: categoryFilter || null,
+    });
+
+    return () => unsubscribe();
   }, [monthFilter, categoryFilter]);
 
   const getLocalized = (g, field) => {

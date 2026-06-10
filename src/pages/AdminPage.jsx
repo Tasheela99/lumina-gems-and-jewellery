@@ -11,10 +11,14 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DiamondIcon from '@mui/icons-material/Diamond';
 import EditIcon from '@mui/icons-material/Edit';
+import HomeIcon from '@mui/icons-material/Home';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import LockIcon from '@mui/icons-material/Lock';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SearchIcon from '@mui/icons-material/Search';
+import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
+import CollectionsIcon from '@mui/icons-material/Collections';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import {
   Avatar,
   Box,
@@ -41,7 +45,9 @@ import {
   Tab,
   TextField,
   Tooltip,
-  Typography
+  Typography,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
@@ -60,6 +66,12 @@ import {
   loginWithGoogle,
   logoutAdmin,
   generateSlug,
+  getOrders,
+  updateOrderStatus,
+  subscribeToProductsPage,
+  subscribeToGemstonesPage,
+  subscribeToOrdersPage,
+  getProductStats,
 } from '../services/firebase';
 import { migrateProductsCollection } from '../utils/migrateProducts';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -180,6 +192,8 @@ const ImageDropzone = ({ onFilesAdded, existingImages = [], onRemoveExisting }) 
 // PRODUCT FORM DIALOG
 // ─────────────────────────────────────────────
 const ProductFormDialog = ({ open, onClose, onSaved, editProduct, defaultCategory }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { showSnackbar } = useSnackbar();
   const [form, setForm] = useState(emptyForm);
   const [newFiles, setNewFiles] = useState([]);
@@ -280,6 +294,7 @@ const ProductFormDialog = ({ open, onClose, onSaved, editProduct, defaultCategor
     <Dialog
       open={open}
       onClose={onClose}
+      fullScreen={isMobile}
       fullWidth
       maxWidth="md"
       PaperProps={{ sx: { bgcolor: 'background.paper', border: '1px solid rgba(201,168,76,0.15)' } }}
@@ -514,6 +529,8 @@ const ProductFormDialog = ({ open, onClose, onSaved, editProduct, defaultCategor
 // GEMSTONE FORM DIALOG
 // ─────────────────────────────────────────────
 const GemstoneFormDialog = ({ open, onClose, onSaved, editGemstone }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { showSnackbar } = useSnackbar();
   const [form, setForm] = useState(emptyGemstoneForm);
   const [newFiles, setNewFiles] = useState([]);
@@ -686,6 +703,7 @@ const GemstoneFormDialog = ({ open, onClose, onSaved, editGemstone }) => {
     <Dialog
       open={open}
       onClose={onClose}
+      fullScreen={isMobile}
       fullWidth
       maxWidth="md"
       PaperProps={{ sx: { bgcolor: 'background.paper', border: '1px solid rgba(201,168,76,0.15)' } }}
@@ -1110,6 +1128,8 @@ const DeleteDialog = ({ open, onClose, onConfirm, productName }) => (
 // MAIN ADMIN DASHBOARD
 // ─────────────────────────────────────────────
 const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { showSnackbar } = useSnackbar();
 
   const [section, setSection] = useState('jewelry');
@@ -1121,6 +1141,12 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [search, setSearch] = useState('');
   const [migrating, setMigrating] = useState(false);
+
+  // Products Pagination & Stats State
+  const [productStats, setProductStats] = useState({ total: 0, gems: 0, jewelry: 0, outOfStock: 0 });
+  const [productHasMore, setProductHasMore] = useState(false);
+  const [productPageIndex, setProductPageIndex] = useState(0);
+  const [productCursors, setProductCursors] = useState([]);
 
   // Gemstones state
   const [gemstones, setGemstones] = useState([]);
@@ -1136,32 +1162,113 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
   const [gemPageIndex, setGemPageIndex] = useState(0);
   const [gemCursors, setGemCursors] = useState([]);
 
-  const fetchProducts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await getProducts();
-      setProducts(data);
-    } catch {
-      showSnackbar('Failed to load products. Check Firebase config.', 'error');
-    } finally {
-      setLoading(false);
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [viewOrder, setViewOrder] = useState(null);
+
+  // Orders Pagination State
+  const [orderHasMore, setOrderHasMore] = useState(false);
+  const [orderPageIndex, setOrderPageIndex] = useState(0);
+  const [orderCursors, setOrderCursors] = useState([]);
+
+  const [unsubscribeOrders, setUnsubscribeOrders] = useState(null);
+
+  const fetchOrdersPage = useCallback((pageIndex = 0, startAfterDoc = null) => {
+    setOrdersLoading(true);
+    const unsubscribe = subscribeToOrdersPage({ pageSize: 10, startAfterDoc }, (result) => {
+      setOrders(result.items);
+      setOrderHasMore(Boolean(result.hasMore));
+      if (result.lastDoc) {
+        setOrderCursors((prev) => {
+          const next = [...prev];
+          next[pageIndex] = result.lastDoc;
+          return next;
+        });
+      }
+      setOrdersLoading(false);
+    });
+
+    setUnsubscribeOrders((prev) => {
+      if (prev) prev();
+      return () => unsubscribe();
+    });
+  }, []);
+
+  useEffect(() => {
+    if (section === 'orders') {
+      fetchOrdersPage(0, null);
+      setOrderPageIndex(0);
+      setOrderCursors([]);
+    } else {
+      if (unsubscribeOrders) unsubscribeOrders();
     }
-  }, [showSnackbar]);
+  }, [section, fetchOrdersPage]);
 
-  useEffect(() => { fetchProducts(); }, [fetchProducts]);
-
-  const fetchGemstones = useCallback(async (pageIndex = 0, startAfterDoc = null) => {
-    setGemLoading(true);
+  const handleUpdateOrderStatus = async (orderId, status) => {
     try {
-      const result = await getGemstonesPage({
-        pageSize: 10,
-        startAfterDoc,
-        month: gemMonth || null,
-        status: gemStatus || null,
-        category: gemCategory || null,
-        searchPrefix: gemSearch || '',
-      });
+      await updateOrderStatus(orderId, status);
+      showSnackbar(`Order status updated to ${status}`, 'success');
+    } catch {
+      showSnackbar('Failed to update order status.', 'error');
+    }
+  };
 
+  const [unsubscribeProducts, setUnsubscribeProducts] = useState(null);
+
+  const fetchProductsPage = useCallback((category, pageIndex = 0, startAfterDoc = null) => {
+    setLoading(true);
+    const unsubscribe = subscribeToProductsPage({ category, pageSize: 10, startAfterDoc }, (result) => {
+      setProducts(result.items);
+      setProductHasMore(Boolean(result.hasMore));
+      if (result.lastDoc) {
+        setProductCursors((prev) => {
+          const next = [...prev];
+          next[pageIndex] = result.lastDoc;
+          return next;
+        });
+      }
+      setLoading(false);
+    });
+
+    setUnsubscribeProducts((prev) => {
+      if (prev) prev();
+      return () => unsubscribe();
+    });
+  }, []);
+
+  useEffect(() => {
+    if (section === 'jewelry') {
+      fetchProductsPage('Jewelry', 0, null);
+      setProductPageIndex(0);
+      setProductCursors([]);
+    } else if (section === 'gems') {
+      fetchProductsPage('Gem', 0, null);
+      setProductPageIndex(0);
+      setProductCursors([]);
+    } else {
+      if (unsubscribeProducts) unsubscribeProducts();
+    }
+  }, [section, fetchProductsPage]);
+
+  // Load product stats once on mount
+  useEffect(() => {
+    getProductStats().then(setProductStats);
+  }, []);
+
+  // Reference for unsubscription of current page
+  const [unsubscribeGemstones, setUnsubscribeGemstones] = useState(null);
+
+  const fetchGemstones = useCallback((pageIndex = 0, startAfterDoc = null) => {
+    setGemLoading(true);
+    
+    const unsubscribe = subscribeToGemstonesPage({
+      pageSize: 10,
+      startAfterDoc,
+      month: gemMonth || null,
+      status: gemStatus || null,
+      category: gemCategory || null,
+      searchPrefix: gemSearch || '',
+    }, (result) => {
       setGemstones(result.items);
       setGemHasMore(Boolean(result.hasMore));
 
@@ -1172,13 +1279,20 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
           return next;
         });
       }
-    } catch (err) {
-      console.error(err);
-      showSnackbar('Failed to load gemstones. Check Firebase config.', 'error');
-    } finally {
       setGemLoading(false);
-    }
-  }, [gemCategory, gemMonth, gemSearch, gemStatus, showSnackbar]);
+    });
+
+    setUnsubscribeGemstones((prev) => {
+      if (prev) prev();
+      return () => unsubscribe();
+    });
+  }, [gemCategory, gemMonth, gemSearch, gemStatus]);
+
+  useEffect(() => {
+    return () => {
+      if (unsubscribeGemstones) unsubscribeGemstones();
+    };
+  }, [unsubscribeGemstones]);
 
   useEffect(() => {
     if (section !== 'gemstones') return;
@@ -1202,7 +1316,7 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
     try {
       await deleteProduct(deleteTarget.id, deleteTarget.images || []);
       showSnackbar(`"${deleteTarget.name}" deleted`, 'success');
-      fetchProducts();
+      // Real-time listener will update the list
     } catch {
       showSnackbar('Delete failed. Check Firebase config.', 'error');
     } finally {
@@ -1212,12 +1326,8 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
 
   const filtered = products.filter((p) => {
     const matchesSearch = p.name?.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = section === 'jewelry' ? p.category === 'Jewelry' : p.category === 'Gem';
-    return matchesSearch && matchesCategory;
+    return matchesSearch;
   });
-
-  const gems = products.filter((p) => p.category === 'Gem').length;
-  const jewelry = products.filter((p) => p.category === 'Jewelry').length;
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -1252,14 +1362,27 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
           >
             {mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
           </IconButton>
-          <Button
-            startIcon={<LogoutIcon />}
-            onClick={onLogout}
-            size="small"
-            sx={{ color: 'text.secondary', '&:hover': { color: 'error.light' }, fontSize: '0.75rem' }}
-          >
-            Sign Out
-          </Button>
+          <Tooltip title="Home Page">
+            <Button
+              href="/"
+              target="_blank"
+              size="small"
+              sx={{ color: 'text.secondary', '&:hover': { color: 'secondary.main' }, fontSize: '0.75rem', minWidth: { xs: 0, sm: 64 }, px: { xs: 1, sm: 1.5 } }}
+            >
+              <HomeIcon sx={{ mr: { xs: 0, sm: 1 }, fontSize: { xs: 20, sm: 18 } }} />
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Home Page</Box>
+            </Button>
+          </Tooltip>
+          <Tooltip title="Sign Out">
+            <Button
+              onClick={onLogout}
+              size="small"
+              sx={{ color: 'text.secondary', '&:hover': { color: 'error.light' }, fontSize: '0.75rem', minWidth: { xs: 0, sm: 64 }, px: { xs: 1, sm: 1.5 } }}
+            >
+              <LogoutIcon sx={{ mr: { xs: 0, sm: 1 }, fontSize: { xs: 20, sm: 18 } }} />
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Sign Out</Box>
+            </Button>
+          </Tooltip>
         </Box>
       </Box>
 
@@ -1271,41 +1394,69 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
               variant="h5"
               sx={{ fontFamily: '"Playfair Display", serif' }}
             >
-              {section === 'jewelry' ? 'Jewelry Management' : section === 'gems' ? 'Gems Management' : section === 'gemstones' ? 'Gemstone Guide' : 'Collection Management'}
+              {section === 'jewelry' ? 'Jewelry Management' : section === 'gems' ? 'Gems Management' : section === 'gemstones' ? 'Gemstone Guide' : section === 'orders' ? 'Orders Management' : 'Collection Management'}
             </Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                variant={section === 'jewelry' ? 'contained' : 'outlined'}
-                color="secondary"
-                size="small"
-                onClick={() => setSection('jewelry')}
-              >
-                Jewelry
-              </Button>
-              <Button
-                variant={section === 'gems' ? 'contained' : 'outlined'}
-                color="secondary"
-                size="small"
-                onClick={() => setSection('gems')}
-              >
-                Gems (Shop)
-              </Button>
-              <Button
-                variant={section === 'gemstones' ? 'contained' : 'outlined'}
-                color="secondary"
-                size="small"
-                onClick={() => setSection('gemstones')}
-              >
-                Gemstone Guide
-              </Button>
-              <Button
-                variant={section === 'collections' ? 'contained' : 'outlined'}
-                color="secondary"
-                size="small"
-                onClick={() => setSection('collections')}
-              >
-                Collections
-              </Button>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Tooltip title="Jewelry">
+                <Button
+                  variant={section === 'jewelry' ? 'contained' : 'outlined'}
+                  color="secondary"
+                  size="small"
+                  onClick={() => setSection('jewelry')}
+                  sx={{ minWidth: { xs: 0, sm: 64 }, px: { xs: 1.5, sm: 2 } }}
+                >
+                  <DiamondIcon sx={{ mr: { xs: 0, sm: 1 }, fontSize: { xs: 20, sm: 18 } }} />
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Jewelry</Box>
+                </Button>
+              </Tooltip>
+              <Tooltip title="Gems (Shop)">
+                <Button
+                  variant={section === 'gems' ? 'contained' : 'outlined'}
+                  color="secondary"
+                  size="small"
+                  onClick={() => setSection('gems')}
+                  sx={{ minWidth: { xs: 0, sm: 64 }, px: { xs: 1.5, sm: 2 } }}
+                >
+                  <DiamondIcon sx={{ mr: { xs: 0, sm: 1 }, fontSize: { xs: 20, sm: 18 } }} />
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Gems (Shop)</Box>
+                </Button>
+              </Tooltip>
+              <Tooltip title="Gemstone Guide">
+                <Button
+                  variant={section === 'gemstones' ? 'contained' : 'outlined'}
+                  color="secondary"
+                  size="small"
+                  onClick={() => setSection('gemstones')}
+                  sx={{ minWidth: { xs: 0, sm: 64 }, px: { xs: 1.5, sm: 2 } }}
+                >
+                  <MenuBookIcon sx={{ mr: { xs: 0, sm: 1 }, fontSize: { xs: 20, sm: 18 } }} />
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Gemstone Guide</Box>
+                </Button>
+              </Tooltip>
+              <Tooltip title="Collections">
+                <Button
+                  variant={section === 'collections' ? 'contained' : 'outlined'}
+                  color="secondary"
+                  size="small"
+                  onClick={() => setSection('collections')}
+                  sx={{ minWidth: { xs: 0, sm: 64 }, px: { xs: 1.5, sm: 2 } }}
+                >
+                  <CollectionsIcon sx={{ mr: { xs: 0, sm: 1 }, fontSize: { xs: 20, sm: 18 } }} />
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Collections</Box>
+                </Button>
+              </Tooltip>
+              <Tooltip title="Orders">
+                <Button
+                  variant={section === 'orders' ? 'contained' : 'outlined'}
+                  color="secondary"
+                  size="small"
+                  onClick={() => setSection('orders')}
+                  sx={{ minWidth: { xs: 0, sm: 64 }, px: { xs: 1.5, sm: 2 } }}
+                >
+                  <ShoppingBagIcon sx={{ mr: { xs: 0, sm: 1 }, fontSize: { xs: 20, sm: 18 } }} />
+                  <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Orders</Box>
+                </Button>
+              </Tooltip>
             </Box>
           </Box>
         </Box>
@@ -1315,10 +1466,10 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
             {/* Stats row */}
             <Box className="row g-3 mb-4">
               {[
-                { label: 'Total Products', value: products.length, color: 'secondary.main' },
-                { label: 'Gemstones', value: gems, color: '#6FCFA0' },
-                { label: 'Jewelry', value: jewelry, color: '#C9A84C' },
-                { label: 'Out of Stock', value: products.filter((p) => p.stock === 0).length, color: 'error.main' },
+                { label: 'Total Products', value: productStats.total, color: 'secondary.main' },
+                { label: 'Gemstones', value: productStats.gems, color: '#6FCFA0' },
+                { label: 'Jewelry', value: productStats.jewelry, color: '#C9A84C' },
+                { label: 'Out of Stock', value: productStats.outOfStock, color: 'error.main' },
               ].map(({ label, value, color }) => (
                 <Box className="col-6 col-md-3" key={label}>
                   <Box
@@ -1353,7 +1504,7 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
                   startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'text.secondary', fontSize: 18 }} /></InputAdornment>,
                 }}
               />
-              <Box sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 <Button
                   onClick={async () => {
                     try {
@@ -1389,15 +1540,19 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
             {loading ? (
               <LoadingSpinner message="Loading products..." />
             ) : (
+              <>
+              {/* Desktop Table */}
               <TableContainer
                 component={Paper}
                 sx={{
                   bgcolor: 'background.paper',
                   border: '1px solid rgba(255,255,255,0.06)',
                   borderRadius: 2,
+                  overflowX: 'auto',
+                  display: { xs: 'none', md: 'block' },
                 }}
               >
-                <Table>
+                <Table sx={{ minWidth: 800 }}>
                   <TableHead>
                     <TableRow sx={{ '& th': { borderColor: 'rgba(201,168,76,0.1)', color: 'secondary.main', letterSpacing: '0.08em', fontSize: '0.72rem' } }}>
                       <TableCell>PRODUCT</TableCell>
@@ -1533,6 +1688,73 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
               </TableBody>
             </Table>
           </TableContainer>
+          
+          {/* Mobile Cards */}
+          <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 2, mt: 2 }}>
+            {filtered.length === 0 ? (
+              <Typography sx={{ color: 'text.secondary', textAlign: 'center', py: 4 }}>
+                {search ? 'No products match your search.' : 'No products yet. Add your first one!'}
+              </Typography>
+            ) : (
+              filtered.map((product) => (
+                <Paper key={product.id} sx={{ p: 2, border: '1px solid rgba(255,255,255,0.06)', borderRadius: 2, display: 'flex', gap: 2, bgcolor: 'background.paper', alignItems: 'center' }}>
+                  <Box sx={{ width: 50, height: 50, borderRadius: 1, overflow: 'hidden', flexShrink: 0, bgcolor: '#1A1A1A' }}>
+                    {product.images?.[0] ? <Box component="img" src={product.images[0]} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <DiamondIcon sx={{ m: 1.5, color: 'secondary.main', opacity: 0.3 }} />}
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>{product.name}</Typography>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Typography variant="caption" sx={{ color: 'secondary.main', fontWeight: 600 }}>{formatCurrency(product.price)}</Typography>
+                      <Chip label={product.category} size="small" sx={{ height: 16, fontSize: '0.6rem' }} />
+                      <Chip label={product.stock === 0 ? 'Out of Stock' : `${product.stock} left`} size="small" sx={{ height: 16, fontSize: '0.6rem' }} color={product.stock === 0 ? 'error' : 'success'} />
+                      {product.featured && <Typography variant="caption" sx={{ color: 'secondary.main', fontSize: '0.6rem' }}>★ Featured</Typography>}
+                    </Box>
+                  </Box>
+                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                    <IconButton size="small" onClick={() => handleEdit(product)}><EditIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" onClick={() => setDeleteTarget(product)} color="error"><DeleteIcon fontSize="small" /></IconButton>
+                  </Box>
+                </Paper>
+              ))
+            )}
+          </Box>
+          
+          {/* Shared Pagination row */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 2, px: 2, mt: 2, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid rgba(255,255,255,0.06)' }}>
+            <Typography variant="caption" color="text.secondary">
+              Page {productPageIndex + 1}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                color="secondary"
+                disabled={productPageIndex === 0}
+                onClick={() => {
+                  const prevIndex = productPageIndex - 1;
+                  fetchProductsPage(section === 'jewelry' ? 'Jewelry' : 'Gem', prevIndex, prevIndex === 0 ? null : productCursors[prevIndex - 1]);
+                  setProductPageIndex(prevIndex);
+                }}
+              >
+                Previous
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                color="secondary"
+                disabled={!productHasMore}
+                onClick={() => {
+                  const nextIndex = productPageIndex + 1;
+                  fetchProductsPage(section === 'jewelry' ? 'Jewelry' : 'Gem', nextIndex, productCursors[productPageIndex]);
+                  setProductPageIndex(nextIndex);
+                }}
+              >
+                Next
+              </Button>
+            </Box>
+          </Box>
+          
+          </>
             )}
           </>
         )}
@@ -1610,15 +1832,18 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
             {gemLoading ? (
               <LoadingSpinner message="Loading gemstones..." />
             ) : (
+              <>
               <TableContainer
                 component={Paper}
                 sx={{
                   bgcolor: 'background.paper',
                   border: '1px solid rgba(255,255,255,0.06)',
                   borderRadius: 2,
+                  overflowX: 'auto',
+                  display: { xs: 'none', md: 'block' },
                 }}
               >
-                <Table>
+                <Table sx={{ minWidth: 800 }}>
                   <TableHead>
                     <TableRow sx={{ '& th': { borderColor: 'rgba(201,168,76,0.1)', color: 'secondary.main', letterSpacing: '0.08em', fontSize: '0.72rem' } }}>
                       <TableCell>GEMSTONE</TableCell>
@@ -1747,57 +1972,83 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
                       ))
                     )}
 
-                    {/* Pagination row */}
-                    <TableRow>
-                      <TableCell colSpan={5} sx={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            Page {gemPageIndex + 1}
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color="secondary"
-                              disabled={gemPageIndex === 0}
-                              onClick={() => {
-                                const prevIndex = Math.max(0, gemPageIndex - 1);
-                                const startAfterDoc = prevIndex === 0 ? null : (gemCursors[prevIndex - 1] || null);
-                                setGemPageIndex(prevIndex);
-                                fetchGemstones(prevIndex, startAfterDoc);
-                              }}
-                            >
-                              Previous
-                            </Button>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color="secondary"
-                              disabled={!gemHasMore}
-                              onClick={() => {
-                                const nextIndex = gemPageIndex + 1;
-                                const startAfterDoc = gemCursors[gemPageIndex] || null;
-                                setGemPageIndex(nextIndex);
-                                fetchGemstones(nextIndex, startAfterDoc);
-                              }}
-                            >
-                              Next
-                            </Button>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
                   </TableBody>
                 </Table>
               </TableContainer>
+
+              {/* Mobile Cards */}
+              <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 2, mt: 2 }}>
+                {gemstones.length === 0 ? (
+                  <Typography sx={{ color: 'text.secondary', textAlign: 'center', py: 4 }}>
+                    No gemstones found. Add your first one!
+                  </Typography>
+                ) : (
+                  gemstones.map((g) => (
+                    <Paper key={g.id} sx={{ p: 2, border: '1px solid rgba(255,255,255,0.06)', borderRadius: 2, display: 'flex', gap: 2, bgcolor: 'background.paper', alignItems: 'center' }}>
+                      <Box sx={{ width: 50, height: 50, borderRadius: 1, overflow: 'hidden', flexShrink: 0, bgcolor: '#1A1A1A' }}>
+                        {Boolean(g.imageUrls?.[0] || g.imageUrl) ? <Box component="img" src={g.imageUrls?.[0] || g.imageUrl} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <DiamondIcon sx={{ m: 1.5, color: 'secondary.main', opacity: 0.3 }} />}
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>{g.name}</Typography>
+                        {g.nameSi && <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.2 }}>{g.nameSi}</Typography>}
+                        <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <Chip label={g.categories?.[0] || '—'} size="small" sx={{ height: 16, fontSize: '0.6rem' }} />
+                          <Chip label={g.status || '—'} size="small" sx={{ height: 16, fontSize: '0.6rem' }} color={g.status === 'Inactive' ? 'error' : 'success'} />
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <IconButton size="small" onClick={() => { setEditGemstone(g); setGemFormOpen(true); }}><EditIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" onClick={() => setDeleteGemTarget(g)} color="error"><DeleteIcon fontSize="small" /></IconButton>
+                      </Box>
+                    </Paper>
+                  ))
+                )}
+              </Box>
+
+              {/* Shared Pagination row */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 2, px: 2, mt: 2, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Page {gemPageIndex + 1}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="secondary"
+                    disabled={gemPageIndex === 0}
+                    onClick={() => {
+                      const prevIndex = Math.max(0, gemPageIndex - 1);
+                      const startAfterDoc = prevIndex === 0 ? null : (gemCursors[prevIndex - 1] || null);
+                      setGemPageIndex(prevIndex);
+                      fetchGemstones(prevIndex, startAfterDoc);
+                    }}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="secondary"
+                    disabled={!gemHasMore}
+                    onClick={() => {
+                      const nextIndex = gemPageIndex + 1;
+                      const startAfterDoc = gemCursors[gemPageIndex] || null;
+                      setGemPageIndex(nextIndex);
+                      fetchGemstones(nextIndex, startAfterDoc);
+                    }}
+                  >
+                    Next
+                  </Button>
+                </Box>
+              </Box>
+              </>
             )}
 
             <GemstoneFormDialog
               open={gemFormOpen}
               onClose={() => { setGemFormOpen(false); setEditGemstone(null); }}
               onSaved={() => {
-                const startAfterDoc = gemPageIndex === 0 ? null : (gemCursors[gemPageIndex - 1] || null);
-                fetchGemstones(gemPageIndex, startAfterDoc);
+                // Real-time listener will update the list automatically
               }}
               editGemstone={editGemstone}
             />
@@ -1810,10 +2061,7 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
                   await deleteGemstone(deleteGemTarget.id, deleteGemTarget.imageUrls || deleteGemTarget.imageUrl || null);
                   showSnackbar(`"${deleteGemTarget.name}" deleted`, 'success');
                   setDeleteGemTarget(null);
-                  {
-                    const startAfterDoc = gemPageIndex === 0 ? null : (gemCursors[gemPageIndex - 1] || null);
-                    fetchGemstones(gemPageIndex, startAfterDoc);
-                  }
+                  // Real-time listener handles refresh
                 } catch (err) {
                   console.error(err);
                   showSnackbar('Delete failed. Check Firebase config.', 'error');
@@ -1826,7 +2074,192 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
         {section === 'collections' && (
           <CollectionManager />
         )}
+        {section === 'orders' && (
+          <Box>
+            {ordersLoading ? (
+              <LoadingSpinner message="Loading orders..." />
+            ) : (
+              <>
+              <TableContainer component={Paper} sx={{ bgcolor: 'background.paper', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 2, overflowX: 'auto', display: { xs: 'none', md: 'block' } }}>
+                <Table sx={{ minWidth: 800 }}>
+                  <TableHead>
+                    <TableRow sx={{ '& th': { borderColor: 'rgba(201,168,76,0.1)', color: 'secondary.main', letterSpacing: '0.08em', fontSize: '0.72rem' } }}>
+                      <TableCell>DATE</TableCell>
+                      <TableCell>CUSTOMER</TableCell>
+                      <TableCell>TOTAL AMOUNT</TableCell>
+                      <TableCell>STATUS</TableCell>
+                      <TableCell align="right">ACTIONS</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {orders.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>No orders found.</TableCell>
+                      </TableRow>
+                    ) : (
+                      orders.map((order) => (
+                        <TableRow key={order.id} sx={{ '& td': { borderColor: 'rgba(255,255,255,0.04)' }, '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
+                          <TableCell><Typography variant="body2">{new Date(order.createdAt?.toMillis ? order.createdAt.toMillis() : Date.now()).toLocaleDateString()}</Typography></TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>{order.customer?.fullName}</Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>{order.customer?.email}</Typography>
+                          </TableCell>
+                          <TableCell><Typography variant="body2" sx={{ color: 'secondary.main', fontWeight: 500 }}>{formatCurrency(order.totalAmount)}</Typography></TableCell>
+                          <TableCell>
+                            <Chip
+                              label={order.status}
+                              size="small"
+                              sx={{
+                                height: 20, fontSize: '0.65rem',
+                                bgcolor: order.status === 'Completed' ? 'rgba(102,187,106,0.1)' : order.status === 'Cancelled' ? 'rgba(244,67,54,0.1)' : 'rgba(255,152,0,0.1)',
+                                color: order.status === 'Completed' ? 'success.main' : order.status === 'Cancelled' ? 'error.main' : 'warning.main',
+                                border: '1px solid',
+                                borderColor: order.status === 'Completed' ? 'rgba(102,187,106,0.2)' : order.status === 'Cancelled' ? 'rgba(244,67,54,0.2)' : 'rgba(255,152,0,0.2)',
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                              {order.status === 'Pending' && (
+                                <>
+                                  <Button size="small" variant="outlined" color="success" onClick={() => handleUpdateOrderStatus(order.id, 'Completed')} sx={{ fontSize: '0.7rem', p: '2px 8px' }}>Complete</Button>
+                                  <Button size="small" variant="outlined" color="error" onClick={() => handleUpdateOrderStatus(order.id, 'Cancelled')} sx={{ fontSize: '0.7rem', p: '2px 8px' }}>Cancel</Button>
+                                </>
+                              )}
+                              <Button size="small" variant="contained" color="secondary" onClick={() => setViewOrder(order)} sx={{ fontSize: '0.7rem', p: '2px 8px' }}>View</Button>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              
+              {/* Mobile Cards */}
+              <Box sx={{ display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 2, mt: 2 }}>
+                {orders.length === 0 ? (
+                  <Typography sx={{ color: 'text.secondary', textAlign: 'center', py: 4 }}>
+                    No orders found.
+                  </Typography>
+                ) : (
+                  orders.map((order) => (
+                    <Paper key={order.id} sx={{ p: 2, border: '1px solid rgba(255,255,255,0.06)', borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 1.5, bgcolor: 'background.paper' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>{order.customer?.fullName}</Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>{order.customer?.email}</Typography>
+                        </Box>
+                        <Chip
+                          label={order.status}
+                          size="small"
+                          sx={{
+                            height: 20, fontSize: '0.65rem',
+                            bgcolor: order.status === 'Completed' ? 'rgba(102,187,106,0.1)' : order.status === 'Cancelled' ? 'rgba(244,67,54,0.1)' : 'rgba(255,152,0,0.1)',
+                            color: order.status === 'Completed' ? 'success.main' : order.status === 'Cancelled' ? 'error.main' : 'warning.main',
+                            border: '1px solid',
+                            borderColor: order.status === 'Completed' ? 'rgba(102,187,106,0.2)' : order.status === 'Cancelled' ? 'rgba(244,67,54,0.2)' : 'rgba(255,152,0,0.2)',
+                          }}
+                        />
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(order.createdAt?.toMillis ? order.createdAt.toMillis() : Date.now()).toLocaleDateString()}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: 'secondary.main', fontWeight: 600 }}>
+                          {formatCurrency(order.totalAmount)}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1 }}>
+                        {order.status === 'Pending' && (
+                          <>
+                            <Button size="small" variant="outlined" color="success" onClick={() => handleUpdateOrderStatus(order.id, 'Completed')} sx={{ fontSize: '0.7rem', p: '2px 8px' }}>Complete</Button>
+                            <Button size="small" variant="outlined" color="error" onClick={() => handleUpdateOrderStatus(order.id, 'Cancelled')} sx={{ fontSize: '0.7rem', p: '2px 8px' }}>Cancel</Button>
+                          </>
+                        )}
+                        <Button size="small" variant="contained" color="secondary" onClick={() => setViewOrder(order)} sx={{ fontSize: '0.7rem', p: '2px 8px' }}>View</Button>
+                      </Box>
+                    </Paper>
+                  ))
+                )}
+              </Box>
+              
+              {/* Shared Pagination row */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 2, px: 2, mt: 2, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Page {orderPageIndex + 1}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="secondary"
+                    disabled={orderPageIndex === 0}
+                    onClick={() => {
+                      const prevIndex = orderPageIndex - 1;
+                      fetchOrdersPage(prevIndex, prevIndex === 0 ? null : orderCursors[prevIndex - 1]);
+                      setOrderPageIndex(prevIndex);
+                    }}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="secondary"
+                    disabled={!orderHasMore}
+                    onClick={() => {
+                      const nextIndex = orderPageIndex + 1;
+                      fetchOrdersPage(nextIndex, orderCursors[orderPageIndex]);
+                      setOrderPageIndex(nextIndex);
+                    }}
+                  >
+                    Next
+                  </Button>
+                </Box>
+              </Box>
+
+              </>
+            )}
+          </Box>
+        )}
       </Box>
+
+      <Dialog open={Boolean(viewOrder)} onClose={() => setViewOrder(null)} fullWidth maxWidth="sm" fullScreen={isMobile} PaperProps={{ sx: { bgcolor: 'background.paper', border: '1px solid rgba(201,168,76,0.15)' } }}>
+        <DialogTitle sx={{ fontFamily: '"Playfair Display", serif', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Order Details</DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          {viewOrder && (
+            <Box>
+              <Typography variant="subtitle2" color="secondary" gutterBottom>Customer Information</Typography>
+              <Typography variant="body2"><strong>Name:</strong> {viewOrder.customer?.fullName}</Typography>
+              <Typography variant="body2"><strong>Email:</strong> {viewOrder.customer?.email}</Typography>
+              <Typography variant="body2"><strong>Address:</strong> {viewOrder.customer?.address}</Typography>
+              <Typography variant="body2"><strong>Phone:</strong> {viewOrder.customer?.phone}</Typography>
+              {viewOrder.customer?.additionalPhone && <Typography variant="body2"><strong>Alt Phone:</strong> {viewOrder.customer?.additionalPhone}</Typography>}
+              
+              <Box sx={{ my: 3, borderTop: '1px solid rgba(255,255,255,0.1)' }} />
+              
+              <Typography variant="subtitle2" color="secondary" gutterBottom>Order Items</Typography>
+              {viewOrder.items?.map((item, idx) => (
+                <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2">{item.quantity}x {item.name}</Typography>
+                  <Typography variant="body2" color="secondary">{formatCurrency(item.price * item.quantity)}</Typography>
+                </Box>
+              ))}
+              
+              <Box sx={{ my: 3, borderTop: '1px solid rgba(255,255,255,0.1)' }} />
+              
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Total Amount</Typography>
+                <Typography variant="subtitle1" color="secondary" sx={{ fontWeight: 700 }}>{formatCurrency(viewOrder.totalAmount)}</Typography>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setViewOrder(null)} color="secondary">Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {(section === 'jewelry' || section === 'gems') && (
         <>
@@ -1834,7 +2267,7 @@ const AdminDashboard = ({ onLogout, mode, onToggleColorMode }) => {
           <ProductFormDialog
             open={formOpen}
             onClose={() => { setFormOpen(false); setEditProduct(null); }}
-            onSaved={fetchProducts}
+            onSaved={() => {}} // Handled by real-time listener
             editProduct={editProduct}
             defaultCategory={section === 'jewelry' ? 'Jewelry' : 'Gem'}
           />

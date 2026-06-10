@@ -21,6 +21,8 @@ import {
   Tabs,
   TextField,
   Typography,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
@@ -116,6 +118,8 @@ const emptyForm = {
 };
 
 const CollectionFormDialog = ({ open, onClose, onSaved, editCollection }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { showSnackbar } = useSnackbar();
   const [tab, setTab] = useState(0);
   const [form, setForm] = useState(emptyForm);
@@ -231,7 +235,7 @@ const CollectionFormDialog = ({ open, onClose, onSaved, editCollection }) => {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg" PaperProps={{ sx: { bgcolor: 'background.paper', border: '1px solid rgba(201,168,76,0.15)' } }}>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg" fullScreen={isMobile} PaperProps={{ sx: { bgcolor: 'background.paper', border: '1px solid rgba(201,168,76,0.15)' } }}>
       <DialogTitle sx={{ fontFamily: '"Playfair Display", serif', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         {editCollection ? 'Edit Collection' : 'Add New Collection'}
         <IconButton onClick={onClose} size="small" sx={{ color: 'text.secondary' }}><CloseIcon /></IconButton>

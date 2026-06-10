@@ -73,7 +73,7 @@ const ProductDetailPage = () => {
   }
 
   const inCart = isInCart(product.id);
-  const outOfStock = product.stock === 0;
+  const outOfStock = !product.stock || product.stock <= 0;
 
   const handleAddToCart = () => {
     if (outOfStock) return;
@@ -212,7 +212,7 @@ const ProductDetailPage = () => {
             <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
               {[
                 { icon: <VerifiedIcon sx={{ fontSize: 18, color: 'secondary.main' }} />, text: 'Certified Authentic' },
-                { icon: <LocalShippingIcon sx={{ fontSize: 18, color: 'secondary.main' }} />, text: 'Free Shipping LK' },
+                { icon: <LocalShippingIcon sx={{ fontSize: 18, color: 'secondary.main' }} />, text: 'Secure Delivery' },
               ].map(({ icon, text }) => (
                 <Box key={text} sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                   {icon}

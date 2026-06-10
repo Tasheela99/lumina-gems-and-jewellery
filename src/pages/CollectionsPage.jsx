@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import CollectionCard from '../components/CollectionCard';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { getCollections } from '../services/firebase';
+import { subscribeToCollections } from '../services/firebase';
 import { updateSEO } from '../utils/seo';
 
 const CollectionsPage = () => {
@@ -18,17 +18,13 @@ const CollectionsPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchCollections = async () => {
-      try {
-        const data = await getCollections({ status: 'Active' });
-        setCollections(data);
-      } catch (err) {
-        console.error('Error fetching collections:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCollections();
+    setLoading(true);
+    const unsubscribe = subscribeToCollections((data) => {
+      setCollections(data);
+      setLoading(false);
+    }, { status: 'Active' });
+
+    return () => unsubscribe();
   }, []);
 
   const featured = collections.filter(c => c.featured);

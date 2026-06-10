@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 // src/pages/CartPage.jsx
 import AddIcon from '@mui/icons-material/Add';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -6,19 +6,27 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DiamondIcon from '@mui/icons-material/Diamond';
 import RemoveIcon from '@mui/icons-material/Remove';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import CloseIcon from '@mui/icons-material/Close';
 import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   IconButton,
+  TextField,
   Typography,
+  CircularProgress,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useSnackbar } from '../components/SnackbarAlert';
 import { useCart } from '../context/CartContext';
 import { formatCurrency } from '../utils/formatCurrency';
 import { updateSEO } from '../utils/seo';
+import { placeOrder } from '../services/firebase';
 
 // ── Single cart row ──────────────────────────────────────────────────────────
 const CartItem = ({ item, onRemove, onQtyChange }) => (
@@ -73,17 +81,35 @@ const CartItem = ({ item, onRemove, onQtyChange }) => (
       >
         {item.name}
       </Typography>
-      <Chip
-        label={item.category}
-        size="small"
-        sx={{
-          height: 18,
-          fontSize: '0.6rem',
-          color: 'text.secondary',
-          bgcolor: 'rgba(255,255,255,0.05)',
-          letterSpacing: '0.06em',
-        }}
-      />
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        <Chip
+          label={item.category}
+          size="small"
+          sx={{
+            height: 18,
+            fontSize: '0.6rem',
+            color: 'text.secondary',
+            bgcolor: 'rgba(255,255,255,0.05)',
+            letterSpacing: '0.06em',
+          }}
+        />
+        {(!item.stock || item.stock <= 0) && (
+          <Chip
+            label="Out of Stock"
+            size="small"
+            color="error"
+            sx={{ height: 18, fontSize: '0.6rem', letterSpacing: '0.06em' }}
+          />
+        )}
+        {(item.stock > 0 && item.quantity > item.stock) && (
+          <Chip
+            label={`Only ${item.stock} left`}
+            size="small"
+            color="warning"
+            sx={{ height: 18, fontSize: '0.6rem', letterSpacing: '0.06em' }}
+          />
+        )}
+      </Box>
       <Typography variant="body2" sx={{ color: 'secondary.main', mt: 0.8, fontWeight: 500 }}>
         {formatCurrency(item.price)}
       </Typography>
@@ -160,7 +186,7 @@ const CartItem = ({ item, onRemove, onQtyChange }) => (
 );
 
 // ── Order Summary ────────────────────────────────────────────────────────────
-const OrderSummary = ({ subtotal, count, onCheckout, onClear }) => {
+const OrderSummary = ({ subtotal, count, onCheckout, onClear, disabledCheckout }) => {
   useEffect(() => {
     updateSEO({
       title: 'Your Cart | Lumina Gems and Jewellery',
@@ -168,7 +194,7 @@ const OrderSummary = ({ subtotal, count, onCheckout, onClear }) => {
     });
   }, []);
 
-  const shipping = 0; // Free shipping
+  const shipping = 0; // Shipping calculated at checkout
   const total = subtotal + shipping;
 
   return (
@@ -191,11 +217,11 @@ const OrderSummary = ({ subtotal, count, onCheckout, onClear }) => {
 
       {[
         { label: `Subtotal (${count} items)`, value: formatCurrency(subtotal) },
-        { label: 'Shipping', value: 'Free' },
+        { label: 'Shipping', value: 'Calculated at checkout' },
       ].map(({ label, value }) => (
         <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
           <Typography variant="body2" color="text.secondary">{label}</Typography>
-          <Typography variant="body2" sx={{ color: value === 'Free' ? 'success.main' : 'text.primary' }}>
+          <Typography variant="body2" sx={{ color: value === 'Calculated at checkout' ? 'warning.main' : 'text.primary' }}>
             {value}
           </Typography>
         </Box>
@@ -217,6 +243,7 @@ const OrderSummary = ({ subtotal, count, onCheckout, onClear }) => {
         size="large"
         endIcon={<ArrowForwardIcon />}
         onClick={onCheckout}
+        disabled={disabledCheckout}
         sx={{ mb: 1.5, py: 1.4 }}
       >
         Proceed to Checkout
@@ -240,6 +267,17 @@ const CartPage = () => {
   const navigate = useNavigate();
   const { cartItems, cartTotal, cartCount, removeFromCart, updateQuantity, clearCart } = useCart();
   const { showSnackbar } = useSnackbar();
+  
+  const hasInvalidItems = cartItems.some(item => !item.stock || item.stock <= 0 || item.quantity > item.stock);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutForm, setCheckoutForm] = useState({
+    fullName: '',
+    email: '',
+    address: '',
+    phone: '',
+    additionalPhone: ''
+  });
 
   const handleRemove = (id) => {
     removeFromCart(id);
@@ -252,7 +290,42 @@ const CartPage = () => {
   };
 
   const handleCheckout = () => {
-    showSnackbar('Checkout coming soon!', 'info');
+    setCheckoutOpen(true);
+  };
+
+  const handleCheckoutChange = (e) => {
+    setCheckoutForm({ ...checkoutForm, [e.target.name]: e.target.value });
+  };
+
+  const submitCheckout = async (e) => {
+    e.preventDefault();
+    if (!checkoutForm.fullName || !checkoutForm.email || !checkoutForm.address || !checkoutForm.phone) {
+      showSnackbar('Please fill in all required fields.', 'error');
+      return;
+    }
+    setCheckoutLoading(true);
+    try {
+      await placeOrder({
+        customer: checkoutForm,
+        items: cartItems.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          category: item.category || ''
+        })),
+        totalAmount: cartTotal
+      });
+      showSnackbar('Order placed successfully! We will contact you soon.', 'success');
+      setCheckoutOpen(false);
+      clearCart();
+      navigate('/');
+    } catch (err) {
+      console.error(err);
+      showSnackbar('Failed to place order. Please try again.', 'error');
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
   return (
@@ -321,17 +394,63 @@ const CartPage = () => {
             </Box>
 
             {/* Summary */}
-            <Box className="col-12 col-md-4">
+            <Box className="col-12 col-lg-4">
               <OrderSummary
                 subtotal={cartTotal}
                 count={cartCount}
-                onCheckout={handleCheckout}
+                onCheckout={() => setCheckoutOpen(true)}
                 onClear={handleClear}
+                disabledCheckout={hasInvalidItems}
               />
             </Box>
           </Box>
         )}
       </Box>
+
+      {/* Checkout Dialog */}
+      <Dialog
+        open={checkoutOpen}
+        onClose={() => !checkoutLoading && setCheckoutOpen(false)}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { bgcolor: 'background.paper', border: '1px solid rgba(201,168,76,0.15)' } }}
+      >
+        <DialogTitle sx={{ fontFamily: '"Playfair Display", serif', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Checkout Details
+          <IconButton onClick={() => !checkoutLoading && setCheckoutOpen(false)} size="small" disabled={checkoutLoading}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <form onSubmit={submitCheckout}>
+          <DialogContent sx={{ pt: 3 }}>
+            <Box className="row g-3">
+              <Box className="col-12">
+                <TextField label="Full Name" name="fullName" value={checkoutForm.fullName} onChange={handleCheckoutChange} fullWidth required disabled={checkoutLoading} />
+              </Box>
+              <Box className="col-12">
+                <TextField label="Email Address" type="email" name="email" value={checkoutForm.email} onChange={handleCheckoutChange} fullWidth required disabled={checkoutLoading} />
+              </Box>
+              <Box className="col-12">
+                <TextField label="Delivery Address" name="address" value={checkoutForm.address} onChange={handleCheckoutChange} fullWidth required multiline rows={2} disabled={checkoutLoading} />
+              </Box>
+              <Box className="col-12 col-md-6">
+                <TextField label="Phone Number" name="phone" value={checkoutForm.phone} onChange={handleCheckoutChange} fullWidth required disabled={checkoutLoading} />
+              </Box>
+              <Box className="col-12 col-md-6">
+                <TextField label="Additional Phone (Optional)" name="additionalPhone" value={checkoutForm.additionalPhone} onChange={handleCheckoutChange} fullWidth disabled={checkoutLoading} />
+              </Box>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <Button onClick={() => setCheckoutOpen(false)} disabled={checkoutLoading} sx={{ color: 'text.secondary' }}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="contained" color="secondary" disabled={checkoutLoading} startIcon={checkoutLoading ? <CircularProgress size={20} /> : null}>
+              {checkoutLoading ? 'Placing Order...' : 'Place Order'}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
     </Box>
   );
 };

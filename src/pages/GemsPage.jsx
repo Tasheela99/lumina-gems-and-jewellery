@@ -3,7 +3,7 @@ import DiamondIcon from '@mui/icons-material/Diamond';
 import { Box, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import ProductGrid from '../components/ProductGrid';
-import { getProducts } from '../services/firebase';
+import { subscribeToProducts } from '../services/firebase';
 import { updateSEO } from '../utils/seo';
 
 const GemsPage = () => {
@@ -19,17 +19,17 @@ const GemsPage = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const data = await getProducts('Gem');
-        setProducts(data);
-      } catch (err) {
-        setError('Failed to load gems. Please try again.');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    setLoading(true);
+    const unsubscribe = subscribeToProducts((data) => {
+      setProducts(data);
+      setLoading(false);
+      setError(null);
+    }, 'Gem');
+
+    // We don't have a direct error callback supported in our subscribe wrapper currently,
+    // so we handle the happy path. If it fails to setup, it returns a no-op function.
+
+    return () => unsubscribe();
   }, []);
 
   return (

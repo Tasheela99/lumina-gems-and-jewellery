@@ -25,7 +25,7 @@ const ProductCard = ({ product, hidePrice = false, hideActions = false }) => {
   const { showSnackbar } = useSnackbar();
 
   const inCart = isInCart(product.id);
-  const outOfStock = product.stock === 0;
+  const outOfStock = !product.stock || product.stock <= 0;
   const thumbnailUrl = product.images?.[0] || null;
 
   const handleAddToCart = (e) => {

@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 import CategoryBanner from "../components/CategoryBanner";
 import LoadingSpinner from "../components/LoadingSpinner";
 import ProductCard from "../components/ProductCard";
-import { getProducts, getCollections } from "../services/firebase";
+import { subscribeToProducts, subscribeToCollections } from "../services/firebase";
 import { updateSEO } from '../utils/seo';
 
 // ── Shared Section Title ──────────────────────────────────────────────────────
@@ -98,7 +98,7 @@ const CountUp = ({ end, suffix = "", prefix = "" }) => {
   return <span ref={ref}>{prefix}{count}{suffix}</span>;
 };
 
-const TRUST_BADGES = ["GIA Certified", "Conflict-Free", "Free Shipping"];
+const TRUST_BADGES = ["GIA Certified", "Conflict-Free", "Secure Shipping"];
 
 const WHY_US = [
   {
@@ -309,23 +309,30 @@ const HomePage = () => {
   const [totalStock, setTotalStock] = useState(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const [data, cols] = await Promise.all([
-          getProducts(),
-          getCollections()
-        ]);
-        setFeatured(data.slice(0, 8));
-        setGemCount(data.filter(p => p.category === 'Gem').length);
-        setJewelryCount(data.filter(p => p.category === 'Jewelry').length);
-        setCollectionCount(cols.length);
-        setTotalStock(data.reduce((sum, p) => sum + (Number(p.stock) || 0), 0));
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    let unmounted = false;
+    let unsubProducts = () => {};
+    let unsubCollections = () => {};
+
+    unsubProducts = subscribeToProducts((data) => {
+      if (unmounted) return;
+      setFeatured(data.slice(0, 8));
+      setGemCount(data.filter((p) => p.category === 'Gem').length);
+      setJewelryCount(data.filter((p) => p.category === 'Jewelry').length);
+      setTotalStock(data.reduce((sum, p) => sum + (Number(p.stock) || 0), 0));
+      // Only hide loading when both are loaded, but for simplicity we can hide it here since products are the main content
+      setLoading(false);
+    });
+
+    unsubCollections = subscribeToCollections((cols) => {
+      if (unmounted) return;
+      setCollectionCount(cols.length);
+    });
+
+    return () => {
+      unmounted = true;
+      unsubProducts();
+      unsubCollections();
+    };
   }, []);
 
   const dynamicStats = [
