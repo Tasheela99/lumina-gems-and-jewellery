@@ -181,12 +181,27 @@ const ContactPage = () => {
                 <Box className="col-12">
                   <Button
                     type="submit"
-                    variant="contained"
-                    color="secondary"
                     size="large"
                     endIcon={<SendIcon />}
                     disabled={loading}
-                    sx={{ px: 5, py: 1.5 }}
+                    sx={{
+                      px: 5,
+                      py: 1.5,
+                      border: 'none !important',
+                      borderRadius: 2.5,
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)',
+                      background: 'rgba(201, 168, 76, 0.30)',
+                      color: '#F5D87A',
+                      boxShadow: '0 8px 24px rgba(201, 168, 76, 0.20)',
+                      fontWeight: 600,
+                      '&:hover': {
+                        border: 'none !important',
+                        background: 'rgba(201, 168, 76, 0.50)',
+                        color: '#FFFFFF',
+                        boxShadow: '0 12px 32px rgba(201, 168, 76, 0.35)',
+                      },
+                    }}
                   >
                     {loading ? 'Sending...' : 'Send Message'}
                   </Button>

@@ -19,7 +19,7 @@ const ProductGrid = ({ products, loading, emptyTitle, emptyDescription }) => {
   return (
     <Box className="row g-4 align-items-stretch">
       {products.map((product) => (
-        <Box key={product.id} className="col-12 col-sm-6 col-md-4 lumina-grid-col">
+        <Box key={product.id} className="col-12 col-sm-6 col-md-4 col-lg-3 lumina-grid-col">
           <ProductCard product={product} />
         </Box>
       ))}

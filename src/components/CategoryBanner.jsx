@@ -14,8 +14,8 @@ const BANNERS = [
     sub: "Sourced from the finest mines of Sri Lanka",
     gradient: (mode) => mode === 'dark'
       ? "linear-gradient(135deg, #0D2B20 0%, #1B4332 50%, #0A1A14 100%)"
-      : "linear-gradient(145deg, #C8F0DC 0%, #A8DFC0 40%, #85CBAB 100%)",
-    accent: (mode) => mode === 'dark' ? "#2D6A4F" : "#2D6A4F",
+      : "linear-gradient(145deg, #EBF6F0 0%, #DCF0E5 50%, #CAE8D7 100%)",
+    accent: (mode) => mode === 'dark' ? "#2D6A4F" : "#1B4332",
     iconColor: (mode) => mode === 'dark' ? "#6FCFA0" : "#1B4332",
   },
   {
@@ -26,9 +26,9 @@ const BANNERS = [
     sub: "Handcrafted pieces for every occasion",
     gradient: (mode) => mode === 'dark'
       ? "linear-gradient(135deg, #1A1200 0%, #3D2B00 50%, #1A0F00 100%)"
-      : "linear-gradient(145deg, #FDEFC4 0%, #F7DFA0 40%, #EEC96A 100%)",
-    accent: (mode) => mode === 'dark' ? "#9A7B2E" : "#9A7B2E",
-    iconColor: (mode) => mode === 'dark' ? "#C9A84C" : "#7D5E12",
+      : "linear-gradient(145deg, #FFF9EB 0%, #FCF1D2 50%, #F7E4B2 100%)",
+    accent: (mode) => mode === 'dark' ? "#9A7B2E" : "#8A6712",
+    iconColor: (mode) => mode === 'dark' ? "#C9A84C" : "#7A5B0F",
   },
   {
     label: "Collections",
@@ -38,9 +38,9 @@ const BANNERS = [
     sub: "Signature picks for gifting and milestones",
     gradient: (mode) => mode === 'dark'
       ? "linear-gradient(135deg, #101018 0%, #1A1A2A 50%, #0B0B12 100%)"
-      : "linear-gradient(145deg, #DDD4F5 0%, #CAB8EE 40%, #B59FE5 100%)",
-    accent: (mode) => mode === 'dark' ? "#6B5CA5" : "#6B5CA5",
-    iconColor: (mode) => mode === 'dark' ? "#B9A7FF" : "#3D2D80",
+      : "linear-gradient(145deg, #F4F0FD 0%, #EAE2FB 50%, #DDD2F7 100%)",
+    accent: (mode) => mode === 'dark' ? "#6B5CA5" : "#5A4997",
+    iconColor: (mode) => mode === 'dark' ? "#B9A7FF" : "#43327E",
   },
 ];
 
@@ -160,7 +160,6 @@ const CategoryBanner = () => {
                     {sub}
                   </Typography>
                   <Button
-                    variant="outlined"
                     size="small"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -169,13 +168,24 @@ const CategoryBanner = () => {
                     sx={{
                       mt: "auto",
                       alignSelf: "flex-start",
-                      borderColor: `${resolvedIconColor}66`,
+                      border: "none !important",
+                      outline: "none",
                       color: resolvedIconColor,
-                      "&:hover": {
-                        borderColor: resolvedIconColor,
-                        bgcolor: `${resolvedIconColor}11`,
-                      },
+                      bgcolor: mode === 'dark' ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.45)",
+                      backdropFilter: "blur(14px)",
+                      WebkitBackdropFilter: "blur(14px)",
+                      borderRadius: 2,
+                      px: 2.2,
+                      py: 0.9,
                       fontSize: "0.72rem",
+                      fontWeight: 600,
+                      boxShadow: "none",
+                      transition: "all 0.25s ease",
+                      "&:hover": {
+                        border: "none !important",
+                        bgcolor: mode === 'dark' ? "rgba(255, 255, 255, 0.18)" : "rgba(255, 255, 255, 0.75)",
+                        transform: "translateY(-1px)",
+                      },
                     }}
                   >
                     Explore {label}

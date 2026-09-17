@@ -11,6 +11,7 @@ import { Box, Button, Chip, Typography, useTheme } from "@mui/material";
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import CategoryBanner from "../components/CategoryBanner";
+import CollectionCard from "../components/CollectionCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 import ProductCard from "../components/ProductCard";
 import { subscribeToProducts, subscribeToCollections } from "../services/firebase";
@@ -98,7 +99,91 @@ const CountUp = ({ end, suffix = "", prefix = "" }) => {
   return <span ref={ref}>{prefix}{count}{suffix}</span>;
 };
 
-const TRUST_BADGES = ["GIA Certified", "Conflict-Free", "Secure Shipping"];
+const AutoplayBackgroundVideo = ({ src }) => {
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.playbackRate = 0.75;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.setAttribute('muted', '');
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+
+    const playVideo = () => {
+      if (video) {
+        video.playbackRate = 0.75;
+        video.muted = true;
+        const promise = video.play();
+        if (promise !== undefined) {
+          promise.catch(() => {
+            const resume = () => {
+              if (video) {
+                video.playbackRate = 0.75;
+                video.muted = true;
+                video.play().catch(() => { });
+              }
+              window.removeEventListener('click', resume);
+              window.removeEventListener('touchstart', resume);
+              window.removeEventListener('scroll', resume);
+            };
+            window.addEventListener('click', resume, { once: true });
+            window.addEventListener('touchstart', resume, { once: true });
+            window.addEventListener('scroll', resume, { once: true });
+          });
+        }
+      }
+    };
+
+    playVideo();
+    video.addEventListener('loadeddata', playVideo);
+    video.addEventListener('canplay', playVideo);
+
+    return () => {
+      video.removeEventListener('loadeddata', playVideo);
+      video.removeEventListener('canplay', playVideo);
+    };
+  }, [src]);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      autoPlay
+      loop
+      muted
+      playsInline
+      preload="auto"
+      onLoadedData={(e) => {
+        e.target.playbackRate = 0.75;
+        e.target.muted = true;
+        e.target.play().catch(() => { });
+      }}
+      onCanPlay={(e) => {
+        e.target.playbackRate = 0.75;
+        e.target.muted = true;
+        e.target.play().catch(() => { });
+      }}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        display: 'block',
+        zIndex: 0,
+        transition: 'transform 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+    >
+      <source src={src} type="video/mp4" />
+    </video>
+  );
+};
 
 const WHY_US = [
   {
@@ -106,192 +191,99 @@ const WHY_US = [
     desc: "Every gemstone comes with a certificate of authenticity from recognized gemological laboratories.",
     Icon: VerifiedIcon,
     color: "#2D6A4F",
-    lightBg: "linear-gradient(135deg, #E8F5EE 0%, #D4ECDF 100%)",
-    darkBg: "rgba(27,67,50,0.25)",
+    video: "/Gemstone_product_showcase_video_20260917123302.mp4",
   },
   {
     title: "Master Craftsmanship",
     desc: "Our jewelry is handcrafted by artisans with decades of experience in the Sri Lankan gem trade.",
     Icon: EmojiEventsIcon,
     color: "#A57E1E",
-    lightBg: "linear-gradient(135deg, #FFF8E6 0%, #F5EDD8 100%)",
-    darkBg: "rgba(165,126,30,0.15)",
+    video: "/Gemstone_product_showcase_video_20260917123308.mp4",
   },
   {
     title: "Ethical Sourcing",
     desc: "We partner only with responsible miners and use conflict-free sourcing across our entire supply chain.",
     Icon: NatureIcon,
     color: "#40916C",
-    lightBg: "linear-gradient(135deg, #EBF5F0 0%, #D8EDDF 100%)",
-    darkBg: "rgba(64,145,108,0.2)",
+    video: "/Gemstone_product_showcase_video_20260917123313.mp4",
   },
   {
     title: "Lifetime Service",
     desc: "Every purchase includes complimentary cleaning, polishing, and service for the lifetime of your piece.",
     Icon: LocalShippingIcon,
     color: "#6B5CA5",
-    lightBg: "linear-gradient(135deg, #F3F0FA 0%, #EAE4F5 100%)",
-    darkBg: "rgba(107,92,165,0.2)",
+    video: "/Gemstone_product_showcase_video_20260917123322.mp4",
   },
 ];
 
 const SECTION_SPACING = { xs: 8, md: 12 };
 
-// ── Hero background data ──────────────────────────────────────────────────────
-// Negative animation-delay offsets start angle: delay = -(angle/360) × period
-const ORBIT_GEMS = [
-  // Outer ring CW 32 s — 4 gems at 0°/90°/180°/270°
-  { r: 320, color: "#E53935", name: "Ruby", cw: true, dur: "32s", delay: "0s", size: 26 },
-  { r: 320, color: "#1E88E5", name: "Sapphire", cw: true, dur: "32s", delay: "-8s", size: 24 },
-  { r: 320, color: "#27AE60", name: "Emerald", cw: true, dur: "32s", delay: "-16s", size: 22 },
-  { r: 320, color: "#8E24AA", name: "Amethyst", cw: true, dur: "32s", delay: "-24s", size: 24 },
-  // Middle ring CCW 22 s — 3 gems at 0°/120°/240°
-  { r: 210, color: "#F57C00", name: "Topaz", cw: false, dur: "22s", delay: "0s", size: 20 },
-  { r: 210, color: "#00ACC1", name: "Aquamarine", cw: false, dur: "22s", delay: "-7.3s", size: 18 },
-  { r: 210, color: "#EC407A", name: "RoseQuartz", cw: false, dur: "22s", delay: "-14.7s", size: 20 },
-  // Inner ring CW 13 s — 2 gems at 0°/180°
-  { r: 110, color: "#C9A84C", name: "Gold", cw: true, dur: "13s", delay: "0s", size: 15 },
-  { r: 110, color: "#90CAF9", name: "Aqua", cw: true, dur: "13s", delay: "-6.5s", size: 13 },
-];
+// ── Hero Video Background ──────────────────────────────────────────────────────
+const HeroVideoBackground = () => {
+  const videoRef = useRef(null);
 
-// Large edge-floating DiamondIcons at very low opacity
-const BG_FLOATS = [
-  { top: "7%", left: "4%", size: 56, opacity: 0.07, delay: "0s", dur: "9s" },
-  { top: "11%", right: "4%", size: 40, opacity: 0.06, delay: "2.1s", dur: "11s" },
-  { top: "71%", left: "3%", size: 68, opacity: 0.05, delay: "1.3s", dur: "8s" },
-  { top: "76%", right: "3%", size: 46, opacity: 0.06, delay: "3.2s", dur: "10s" },
-  { top: "40%", left: "1%", size: 30, opacity: 0.08, delay: "0.8s", dur: "12s" },
-  { top: "36%", right: "1%", size: 34, opacity: 0.07, delay: "4.0s", dur: "9s" },
-  { top: "54%", left: "11%", size: 22, opacity: 0.05, delay: "1.6s", dur: "7s" },
-  { top: "23%", right: "11%", size: 28, opacity: 0.06, delay: "2.8s", dur: "13s" },
-];
-
-// AutoAwesome sparkles scattered across the hero
-const SPARKLES = [
-  { top: "13%", left: "21%", size: 22, delay: "0s" },
-  { top: "8%", right: "23%", size: 17, delay: "1.5s" },
-  { top: "79%", left: "17%", size: 19, delay: "2.2s" },
-  { top: "81%", right: "19%", size: 15, delay: "0.8s" },
-  { top: "47%", left: "27%", size: 13, delay: "3.1s" },
-  { top: "51%", right: "25%", size: 15, delay: "1.9s" },
-  { top: "29%", left: "45%", size: 11, delay: "2.7s" },
-  { top: "64%", right: "43%", size: 12, delay: "0.5s" },
-];
-
-// ── GemBackground ─────────────────────────────────────────────────────────────
-// Absolutely fills the hero, sits at z-index 0 behind all text content.
-const GemBackground = ({ isDark }) => {
-  const gold = isDark ? "#C9A84C" : "#A57E1E";
-  const green = isDark ? "#1B4332" : "#2D6A4F";
-  const ring = isDark ? "rgba(201,168,76," : "rgba(165,126,30,";
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.playbackRate = 0.55;
+      video.muted = true;
+      video.defaultMuted = true;
+      video.playsInline = true;
+      video.setAttribute('muted', '');
+      video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', '');
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => { });
+      }
+    }
+  }, []);
 
   return (
-    <Box sx={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
-
-      {/* Pulsing radial glow */}
+    <Box sx={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0, bgcolor: "#000000" }}>
+      {/* Video element with slow motion 0.55x playback */}
       <Box
+        component="video"
+        ref={videoRef}
+        autoPlay
+        loop
+        muted
+        playsInline
+        src="/hero_video.mp4"
+        onLoadedMetadata={(e) => {
+          e.target.playbackRate = 0.55;
+          e.target.muted = true;
+          e.target.play().catch(() => { });
+        }}
+        onCanPlay={(e) => {
+          e.target.playbackRate = 0.55;
+          e.target.muted = true;
+          e.target.play().catch(() => { });
+        }}
         sx={{
-          position: "absolute", top: "50%", left: "50%",
-          width: 640, height: 640,
-          borderRadius: "50%",
-          background: isDark
-            ? "radial-gradient(circle, rgba(201,168,76,0.10) 0%, rgba(27,67,50,0.07) 40%, transparent 70%)"
-            : "radial-gradient(circle, rgba(201,168,76,0.14) 0%, rgba(45,106,79,0.07) 40%, transparent 70%)",
-          animation: "gem-glow-pulse 5s ease-in-out infinite",
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          minWidth: "100%",
+          minHeight: "100%",
+          width: "auto",
+          height: "auto",
+          objectFit: "cover",
+          zIndex: 0,
+          opacity: 0.85,
         }}
       />
-
-      {/* Large central DiamondIcon — floats gently behind headline */}
-      <Box sx={{ position: "absolute", top: "50%", left: "50%", animation: "gem-float 8s ease-in-out infinite" }}>
-        <DiamondIcon
-          sx={{
-            fontSize: 380,
-            color: green,
-            opacity: isDark ? 0.12 : 0.09,
-            display: "block",
-            transform: "translate(-50%, -50%)",
-            filter: `drop-shadow(0 0 48px ${gold}44)`,
-          }}
-        />
-      </Box>
-
-      {/* Three concentric orbit ring circles */}
-      {[320, 210, 110].map((r, i) => (
-        <Box
-          key={r}
-          sx={{
-            position: "absolute", top: "50%", left: "50%",
-            width: r * 2, height: r * 2,
-            transform: "translate(-50%, -50%)",
-            borderRadius: "50%",
-            border: "1px solid",
-            borderColor: `${ring}${0.07 + i * 0.05})`,
-            animation: `ring-pulse ${4 + i}s ease-in-out ${i * 0.9}s infinite`,
-          }}
-        />
-      ))}
-
-      {/* Orbiting coloured DiamondIcons */}
-      {ORBIT_GEMS.map(({ r, color, cw, dur, delay, name, size }) => (
-        <Box
-          key={name}
-          sx={{
-            position: "absolute", top: "50%", left: "50%",
-            width: 0, height: 0,
-            animationName: cw ? "orbit-cw" : "orbit-ccw",
-            animationDuration: dur,
-            animationTimingFunction: "linear",
-            animationDelay: delay,
-            animationIterationCount: "infinite",
-            "--orbit-r": `${r}px`,
-          }}
-        >
-          <DiamondIcon
-            sx={{
-              position: "absolute",
-              transform: "translate(-50%, -50%)",
-              fontSize: size,
-              color,
-              opacity: isDark ? 0.8 : 0.7,
-              filter: `drop-shadow(0 0 8px ${color}CC) drop-shadow(0 0 20px ${color}55)`,
-              animation: `gem-glow-dot 3.2s ease-in-out ${delay} infinite`,
-            }}
-          />
-        </Box>
-      ))}
-
-      {/* Edge floating DiamondIcons */}
-      {BG_FLOATS.map((f, i) => (
-        <Box
-          key={i}
-          sx={{
-            position: "absolute",
-            top: f.top, left: f.left, right: f.right,
-            animationName: "gem-float",
-            animationDuration: f.dur,
-            animationTimingFunction: "ease-in-out",
-            animationDelay: f.delay,
-            animationIterationCount: "infinite",
-          }}
-        >
-          <DiamondIcon sx={{ fontSize: f.size, color: gold, opacity: f.opacity }} />
-        </Box>
-      ))}
-
-      {/* AutoAwesome sparkles */}
-      {SPARKLES.map((s, i) => (
-        <Box
-          key={i}
-          sx={{
-            position: "absolute",
-            top: s.top, left: s.left, right: s.right,
-            animation: `gem-sparkle 3.5s ease-in-out ${s.delay} infinite`,
-            opacity: 0,
-          }}
-        >
-          <AutoAwesomeIcon sx={{ fontSize: s.size, color: gold, display: "block" }} />
-        </Box>
-      ))}
+      {/* Deep black backdrop overlay in both dark & light modes */}
+      <Box
+        sx={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 1,
+          background: "linear-gradient(180deg, rgba(0,0,0,0.68) 0%, rgba(0,0,0,0.40) 50%, rgba(0,0,0,0.88) 100%)",
+          pointerEvents: "none",
+        }}
+      />
     </Box>
   );
 };
@@ -301,7 +293,9 @@ const HomePage = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
-  const [featured, setFeatured] = useState([]);
+  const [gems, setGems] = useState([]);
+  const [jewelry, setJewelry] = useState([]);
+  const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [gemCount, setGemCount] = useState(null);
   const [jewelryCount, setJewelryCount] = useState(null);
@@ -310,23 +304,26 @@ const HomePage = () => {
 
   useEffect(() => {
     let unmounted = false;
-    let unsubProducts = () => {};
-    let unsubCollections = () => {};
+    let unsubProducts = () => { };
+    let unsubCollections = () => { };
 
     unsubProducts = subscribeToProducts((data) => {
       if (unmounted) return;
-      setFeatured(data.slice(0, 8));
-      setGemCount(data.filter((p) => p.category === 'Gem').length);
-      setJewelryCount(data.filter((p) => p.category === 'Jewelry').length);
+      const gemItems = data.filter((p) => p.category === 'Gem');
+      const jewelryItems = data.filter((p) => p.category === 'Jewelry');
+      setGems(gemItems.slice(0, 8));
+      setJewelry(jewelryItems.slice(0, 8));
+      setGemCount(gemItems.length);
+      setJewelryCount(jewelryItems.length);
       setTotalStock(data.reduce((sum, p) => sum + (Number(p.stock) || 0), 0));
-      // Only hide loading when both are loaded, but for simplicity we can hide it here since products are the main content
       setLoading(false);
     });
 
     unsubCollections = subscribeToCollections((cols) => {
       if (unmounted) return;
+      setCollections(cols.slice(0, 8));
       setCollectionCount(cols.length);
-    });
+    }, { status: 'Active' });
 
     return () => {
       unmounted = true;
@@ -339,11 +336,11 @@ const HomePage = () => {
     { value: gemCount, suffix: "", label: "Rare Gemstones", Icon: DiamondIcon },
     { value: jewelryCount, suffix: "", label: "Jewelry Pieces", Icon: AutoAwesomeIcon },
     { value: collectionCount, suffix: "", label: "Curated Collections", Icon: EmojiEventsIcon },
-    { value: totalStock, suffix: "", label: "Items In Stock", Icon: VerifiedIcon },
+    { value: totalStock, suffix: "", label: "Certified Masterpieces", Icon: VerifiedIcon },
   ];
 
   const scrollToCollection = () =>
-    document.getElementById("collection-section")?.scrollIntoView({ behavior: "smooth" });
+    document.getElementById("gems-section")?.scrollIntoView({ behavior: "smooth" });
 
   return (
     <Box>
@@ -351,30 +348,19 @@ const HomePage = () => {
       {/* ── HERO ─────────────────────────────────────────────────────────────── */}
       <Box
         sx={{
-          minHeight: "100vh",
+          minHeight: { xs: 580, sm: 680, md: 760, lg: 800 },
           display: "flex",
           alignItems: "center",
+          justifyContent: "center",
           position: "relative",
           overflow: "hidden",
-          background: isDark
-            ? "linear-gradient(180deg, #0A0A0A 0%, #0D1510 100%)"
-            : "linear-gradient(135deg, #FDF8F0 0%, #F5ECD8 40%, #EDE4D0 100%)",
+          bgcolor: "#000000",
+          pt: { xs: 13, md: 15 },
+          pb: { xs: 8, md: 10 },
         }}
       >
-        {/* Animated gem background layer */}
-        <GemBackground isDark={isDark} />
-
-        {/* Subtle dot-grid */}
-        <Box
-          sx={{
-            position: "absolute", inset: 0, zIndex: 0,
-            backgroundImage: isDark
-              ? "radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)"
-              : "radial-gradient(circle, rgba(165,126,30,0.07) 1px, transparent 1px)",
-            backgroundSize: "32px 32px",
-            pointerEvents: "none",
-          }}
-        />
+        {/* Background video layer without any white overlays */}
+        <HeroVideoBackground />
 
         {/* Centred text content */}
         <Box
@@ -383,30 +369,33 @@ const HomePage = () => {
         >
           <Box
             sx={{
-              maxWidth: 680,
+              maxWidth: 760,
               mx: "auto",
               textAlign: "center",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              py: { xs: 4, md: 0 },
+              py: { xs: 3, md: 2 },
             }}
           >
             {/* Badge */}
             <Chip
-              icon={<DiamondIcon sx={{ fontSize: "14px !important", color: "secondary.main !important" }} />}
+              icon={<DiamondIcon sx={{ fontSize: "14px !important", color: "#FFE082 !important" }} />}
               label="Sri Lanka's Finest"
               sx={{
-                mb: 3,
-                bgcolor: isDark ? "rgba(201,168,76,0.10)" : "rgba(165,126,30,0.12)",
-                border: "1px solid",
-                borderColor: isDark ? "rgba(201,168,76,0.3)" : "rgba(165,126,30,0.4)",
-                color: "secondary.main",
-                letterSpacing: "0.1em",
-                fontSize: "0.7rem",
+                mb: 2.5,
+                bgcolor: "rgba(255, 255, 255, 0.16)",
+                border: "none",
+                boxShadow: "0 4px 20px rgba(0, 0, 0, 0.35)",
+                color: "#FFFFFF",
+                letterSpacing: "0.12em",
+                fontSize: "0.74rem",
                 fontWeight: 600,
-                px: 0.5,
-                backdropFilter: "blur(4px)",
+                px: 1.2,
+                py: 1.8,
+                borderRadius: 3,
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
               }}
             />
 
@@ -414,21 +403,24 @@ const HomePage = () => {
             <Typography
               variant="h1"
               sx={{
-                fontSize: { xs: "2.8rem", md: "4.2rem", lg: "5rem" },
-                lineHeight: 1.08,
-                mb: 3,
+                fontSize: { xs: "2.6rem", sm: "3.6rem", md: "4.3rem", lg: "4.8rem" },
+                lineHeight: 1.12,
+                mb: 2.2,
                 fontFamily: '"Playfair Display", serif',
-                color: isDark ? "text.primary" : "#1A150A",
+                color: "#FFFFFF",
+                letterSpacing: "-0.01em",
+                textShadow: "0 4px 24px rgba(0,0,0,0.85), 0 1px 8px rgba(0,0,0,0.9)",
               }}
             >
               Where Rarity{" "}
               <Box
                 component="span"
                 sx={{
-                  background: "linear-gradient(135deg, #C9A84C 0%, #E0C270 50%, #9A7B2E 100%)",
+                  background: "linear-gradient(135deg, #FFE082 0%, #FFCA28 50%, #FFB300 100%)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   backgroundClip: "text",
+                  filter: "drop-shadow(0 2px 16px rgba(255, 193, 7, 0.4))",
                 }}
               >
                 Meets
@@ -440,11 +432,13 @@ const HomePage = () => {
             <Typography
               variant="body1"
               sx={{
-                mb: 4,
-                maxWidth: 480,
-                lineHeight: 1.9,
-                fontSize: "1.05rem",
-                color: isDark ? "text.secondary" : "#5C4F3A",
+                mb: 3.5,
+                maxWidth: 540,
+                lineHeight: 1.8,
+                fontSize: { xs: "0.95rem", md: "1.02rem" },
+                color: "rgba(255, 255, 255, 0.92)",
+                fontWeight: 400,
+                textShadow: "0 2px 16px rgba(0,0,0,0.9), 0 1px 6px rgba(0,0,0,0.95)",
               }}
             >
               Discover our curated collection of rare gemstones and handcrafted jewelry, sourced
@@ -452,78 +446,67 @@ const HomePage = () => {
             </Typography>
 
             {/* CTA Buttons */}
-            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center" }}>
+            <Box sx={{ display: "flex", gap: { xs: 1.8, sm: 2.2 }, flexWrap: "wrap", justifyContent: "center" }}>
               <Button
                 variant="contained"
-                color="secondary"
                 size="large"
+                startIcon={<DiamondIcon sx={{ fontSize: "18px !important", color: "#FFE082 !important" }} />}
                 onClick={() => navigate("/gems")}
                 sx={{
-                  px: 4, py: 1.5,
-                  ...(isDark ? {} : {
-                    background: "linear-gradient(135deg, #A57E1E 0%, #C9A84C 100%)",
-                    color: "#FFFFFF",
-                    boxShadow: "0 6px 24px rgba(165,126,30,0.35)",
-                    "&:hover": {
-                      background: "linear-gradient(135deg, #8B6A18 0%, #A57E1E 100%)",
-                      boxShadow: "0 8px 32px rgba(165,126,30,0.5)",
-                      transform: "translateY(-2px)",
-                    },
-                  }),
+                  px: { xs: 3.2, sm: 4.4 },
+                  py: { xs: 1.2, sm: 1.4 },
+                  border: "1.5px solid rgba(255, 224, 130, 0.5) !important",
+                  borderRadius: "30px !important",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  background: "linear-gradient(135deg, #1B4332 0%, #2D6A4F 60%, #1B4332 100%) !important",
+                  color: "#FFFFFF !important",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  fontSize: "0.85rem",
+                  boxShadow: "0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(45, 106, 79, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.35) !important",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  "&:hover": {
+                    border: "1.5px solid rgba(255, 224, 130, 0.85) !important",
+                    background: "linear-gradient(135deg, #2D6A4F 0%, #40916C 60%, #2D6A4F 100%) !important",
+                    color: "#FFFFFF !important",
+                    boxShadow: "0 14px 40px rgba(0, 0, 0, 0.7), 0 0 30px rgba(64, 145, 108, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.5) !important",
+                    transform: "translateY(-3px)",
+                  },
                 }}
               >
                 Explore Gems
               </Button>
               <Button
-                variant="outlined"
+                variant="contained"
                 size="large"
+                startIcon={<AutoAwesomeIcon sx={{ fontSize: "18px !important", color: "#FFD54F !important" }} />}
                 onClick={() => navigate("/jewelry")}
                 sx={{
-                  px: 4, py: 1.5,
-                  ...(isDark ? {} : {
-                    borderColor: "rgba(45,106,79,0.6)",
-                    color: "#2D6A4F",
-                    "&:hover": {
-                      borderColor: "#2D6A4F",
-                      bgcolor: "rgba(45,106,79,0.06)",
-                      transform: "translateY(-2px)",
-                    },
-                  }),
+                  px: { xs: 3.2, sm: 4.4 },
+                  py: { xs: 1.2, sm: 1.4 },
+                  border: "1.5px solid rgba(255, 255, 255, 0.6) !important",
+                  borderRadius: "30px !important",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  background: "rgba(255, 255, 255, 0.18) !important",
+                  color: "#FFFFFF !important",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  fontSize: "0.85rem",
+                  boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.5) !important",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  "&:hover": {
+                    border: "1.5px solid rgba(255, 255, 255, 0.95) !important",
+                    background: "rgba(255, 255, 255, 0.35) !important",
+                    color: "#FFFFFF !important",
+                    boxShadow: "0 14px 40px rgba(0, 0, 0, 0.65), inset 0 1px 3px rgba(255, 255, 255, 0.8) !important",
+                    transform: "translateY(-3px)",
+                  },
                 }}
               >
                 View Jewelry
               </Button>
-            </Box>
-
-            {/* Trust badges */}
-            <Box sx={{ mt: 4, display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center" }}>
-              {TRUST_BADGES.map((badge) => (
-                <Box
-                  key={badge}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 0.6,
-                    px: 1.5, py: 0.5,
-                    borderRadius: 2,
-                    bgcolor: isDark ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.55)",
-                    backdropFilter: "blur(6px)",
-                    border: "1px solid",
-                    borderColor: isDark ? "rgba(201,168,76,0.2)" : "rgba(45,106,79,0.18)",
-                  }}
-                >
-                  <VerifiedIcon sx={{ fontSize: 14, color: isDark ? "secondary.main" : "#2D6A4F" }} />
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: isDark ? "secondary.main" : "#2D6A4F",
-                      fontWeight: 600, letterSpacing: "0.05em", fontSize: "0.68rem",
-                    }}
-                  >
-                    {badge}
-                  </Typography>
-                </Box>
-              ))}
             </Box>
           </Box>
         </Box>
@@ -532,112 +515,140 @@ const HomePage = () => {
         <Box
           onClick={scrollToCollection}
           sx={{
-            position: "absolute", bottom: 32, left: "50%",
+            position: "absolute", bottom: 18, left: "50%",
             transform: "translateX(-50%)",
             display: "flex", flexDirection: "column", alignItems: "center",
-            gap: 0.5, cursor: "pointer", opacity: 0.6, zIndex: 1,
+            gap: 0.5, cursor: "pointer", opacity: 0.85, zIndex: 2,
             animation: "bounce 2s ease-in-out infinite",
             "@keyframes bounce": {
               "0%, 100%": { transform: "translateX(-50%) translateY(0)" },
-              "50%": { transform: "translateX(-50%) translateY(8px)" },
+              "50%": { transform: "translateX(-50%) translateY(6px)" },
             },
           }}
         >
-          <Typography variant="caption" sx={{ color: isDark ? "text.secondary" : "#7A6544", letterSpacing: "0.12em" }}>
+          <Typography variant="caption" sx={{ color: "rgba(255, 255, 255, 0.85)", letterSpacing: "0.12em", fontWeight: 600 }}>
             SCROLL
           </Typography>
-          <KeyboardArrowDownIcon sx={{ color: "secondary.main", fontSize: 20 }} />
+          <KeyboardArrowDownIcon sx={{ color: "#FFE082", fontSize: 20 }} />
         </Box>
       </Box>
 
-      {/* ── STATS ────────────────────────────────────────────────────────────── */}
+      {/* ── THE LUMINA HERITAGE VIDEO PILLARS ───────────────────────────────── */}
       <Box
         sx={{
+          py: { xs: 6, md: 8 },
           background: isDark
-            ? "#0D0D0D"
-            : "linear-gradient(135deg, #2D6A4F 0%, #1B4332 50%, #40916C 100%)",
-          borderTop: isDark ? "1px solid rgba(201,168,76,0.08)" : "none",
-          borderBottom: isDark ? "1px solid rgba(201,168,76,0.08)" : "none",
-          py: { xs: 5, md: 6 },
+            ? "linear-gradient(180deg, #0A0A0A 0%, #121212 100%)"
+            : "linear-gradient(180deg, #FAF8F5 0%, #FFFFFF 100%)",
           position: "relative",
           overflow: "hidden",
         }}
       >
-        <Box
-          sx={{
-            position: "absolute", inset: 0,
-            backgroundImage: isDark
-              ? "radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)"
-              : "radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)",
-            backgroundSize: "28px 28px",
-            pointerEvents: "none",
-          }}
-        />
-        <Box
-          sx={{
-            position: "absolute", top: "-40%", right: "-5%",
-            width: "35%", height: "200%",
-            background: isDark
-              ? "radial-gradient(ellipse, rgba(201,168,76,0.06) 0%, transparent 70%)"
-              : "radial-gradient(ellipse, rgba(201,168,76,0.12) 0%, transparent 70%)",
-            pointerEvents: "none",
-          }}
-        />
-        <Box className="container lumina-section-container" sx={{ position: "relative", zIndex: 1 }}>
-          <Box className="row g-0 align-items-stretch w-100">
-            {dynamicStats.map(({ value, suffix, label, Icon }, i) => (
-              <Box className="col-6 col-md-3" key={label}>
+        <Box className="container lumina-section-container">
+          <Box className="row g-3 g-lg-4 align-items-stretch">
+            {WHY_US.map(({ title, desc, Icon, color, video }) => (
+              <Box className="col-12 col-sm-6 col-lg-3" key={title}>
                 <Box
                   sx={{
-                    textAlign: "center",
+                    position: "relative",
+                    overflow: "hidden",
+                    height: "100%",
+                    minHeight: { xs: 380, sm: 420, md: 460 },
+                    p: { xs: 3, md: 3.5 },
+                    borderRadius: 3.5,
+                    border: isDark
+                      ? "1px solid rgba(201, 168, 76, 0.35)"
+                      : "1px solid rgba(201, 168, 76, 0.4)",
+                    boxShadow: "0 12px 32px rgba(0, 0, 0, 0.35)",
+                    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
                     display: "flex",
                     flexDirection: "column",
-                    alignItems: "center",
-                    py: 2,
-                    borderRight: {
-                      md: i < 3
-                        ? isDark
-                          ? "1px solid rgba(255,255,255,0.05)"
-                          : "1px solid rgba(255,255,255,0.15)"
-                        : "none",
+                    alignItems: "flex-start",
+                    justifyContent: "flex-end",
+                    cursor: "default",
+                    bgcolor: "#080808",
+                    "&:hover": {
+                      transform: "translateY(-6px)",
+                      borderColor: "rgba(255, 224, 130, 0.9)",
+                      boxShadow: "0 20px 48px rgba(0, 0, 0, 0.55), 0 0 28px rgba(201, 168, 76, 0.35)",
+                      "& video": {
+                        transform: "scale(1.08)",
+                      },
+                      "& .pillar-video-overlay": {
+                        background: "linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(4,12,8,0.3) 35%, rgba(4,12,8,0.94) 100%)",
+                      },
+                      "& .pillar-icon-box": {
+                        transform: "scale(1.1) rotate(6deg)",
+                        bgcolor: "rgba(201, 168, 76, 0.3)",
+                        borderColor: "#FFE082",
+                        boxShadow: "0 6px 20px rgba(255, 224, 130, 0.45)",
+                      },
                     },
                   }}
                 >
+                  {/* Background Video */}
+                  <AutoplayBackgroundVideo src={video} />
+
+                  {/* Dark Glass Vignette Overlay - crystal clear video at top, dark readable base */}
                   <Box
+                    className="pillar-video-overlay"
                     sx={{
-                      mb: 1,
-                      width: 44, height: 44,
-                      borderRadius: "50%",
-                      display: "grid",
-                      placeItems: "center",
-                      bgcolor: isDark ? "rgba(201,168,76,0.1)" : "rgba(255,255,255,0.15)",
-                      border: "1px solid",
-                      borderColor: isDark ? "rgba(201,168,76,0.2)" : "rgba(255,255,255,0.25)",
+                      position: "absolute",
+                      inset: 0,
+                      zIndex: 1,
+                      background: "linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.2) 30%, rgba(6,14,10,0.65) 65%, rgba(6,14,10,0.96) 100%)",
+                      transition: "all 0.4s ease",
+                      pointerEvents: "none",
                     }}
-                  >
-                    <Icon sx={{ fontSize: 22, color: isDark ? "secondary.main" : "#F5D87A" }} />
+                  />
+
+                  {/* Card Content */}
+                  <Box sx={{ position: "relative", zIndex: 2, width: "100%" }}>
+                    <Box
+                      className="pillar-icon-box"
+                      sx={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: "50%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        bgcolor: "rgba(10, 20, 15, 0.65)",
+                        backdropFilter: "blur(12px)",
+                        WebkitBackdropFilter: "blur(12px)",
+                        border: "1px solid rgba(255, 224, 130, 0.45)",
+                        boxShadow: "0 4px 14px rgba(0, 0, 0, 0.45)",
+                        mb: 2,
+                        transition: "all 0.35s ease",
+                      }}
+                    >
+                      <Icon sx={{ color: "#FFE082", fontSize: 24 }} />
+                    </Box>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontFamily: '"Playfair Display", serif',
+                        fontSize: "1.15rem",
+                        fontWeight: 700,
+                        mb: 1,
+                        color: "#FFFFFF",
+                        textShadow: "0 2px 10px rgba(0,0,0,0.95)",
+                      }}
+                    >
+                      {title}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        lineHeight: 1.7,
+                        fontSize: "0.86rem",
+                        color: "rgba(255, 255, 255, 0.92)",
+                        textShadow: "0 1px 8px rgba(0,0,0,0.95)",
+                      }}
+                    >
+                      {desc}
+                    </Typography>
                   </Box>
-                  <Typography
-                    variant="h4"
-                    sx={{
-                      fontFamily: '"Playfair Display", serif',
-                      color: isDark ? "secondary.main" : "#F5D87A",
-                      mb: 0.5,
-                      textShadow: isDark ? "none" : "0 2px 12px rgba(0,0,0,0.25)",
-                    }}
-                  >
-                    {value === null ? "..." : <CountUp end={value} suffix={suffix} />}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: isDark ? "text.secondary" : "rgba(255,255,255,0.80)",
-                      letterSpacing: "0.1em",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {label.toUpperCase()}
-                  </Typography>
                 </Box>
               </Box>
             ))}
@@ -645,12 +656,12 @@ const HomePage = () => {
         </Box>
       </Box>
 
-      {/* ── COLLECTION ───────────────────────────────────────────────────────── */}
+      {/* ── 1. GEMS SECTION ──────────────────────────────────────────────────── */}
       <Box
-        id="collection-section"
+        id="gems-section"
         sx={{
           py: SECTION_SPACING,
-          background: isDark ? "transparent" : "linear-gradient(180deg, #FDFAF4 0%, #F7F0E2 100%)",
+          background: isDark ? "transparent" : "linear-gradient(180deg, #F8F7F4 0%, #FFFFFF 100%)",
           position: "relative",
           overflow: "hidden",
         }}
@@ -659,28 +670,28 @@ const HomePage = () => {
           sx={{
             position: "absolute", inset: 0,
             backgroundImage: isDark
-              ? "radial-gradient(ellipse at 15% 50%, rgba(27,67,50,0.1) 0%, transparent 60%), radial-gradient(ellipse at 85% 50%, rgba(201,168,76,0.05) 0%, transparent 60%)"
-              : "radial-gradient(ellipse at 15% 50%, rgba(201,168,76,0.07) 0%, transparent 60%), radial-gradient(ellipse at 85% 50%, rgba(45,106,79,0.06) 0%, transparent 60%)",
+              ? "radial-gradient(ellipse at 15% 50%, rgba(27,67,50,0.12) 0%, transparent 60%), radial-gradient(ellipse at 85% 50%, rgba(201,168,76,0.05) 0%, transparent 60%)"
+              : "radial-gradient(ellipse at 15% 50%, rgba(201,168,76,0.05) 0%, transparent 60%), radial-gradient(ellipse at 85% 50%, rgba(45,106,79,0.04) 0%, transparent 60%)",
             pointerEvents: "none",
           }}
         />
         <Box className="container lumina-section-container" sx={{ position: "relative", zIndex: 1 }}>
           <SectionTitle
-            overline="Our Collection"
-            title="Featured Pieces"
-            subtitle="Handpicked selections from our ever-growing catalog of rare gemstones and exquisite jewelry."
+            overline="Natural Brilliance"
+            title="Rare Gemstones"
+            subtitle="Handpicked natural Ceylon sapphires, rubies, and precious gemstones directly from Sri Lanka's legendary mines."
           />
           {loading ? (
-            <LoadingSpinner message="Loading collection..." />
-          ) : featured.length === 0 ? (
-            <Box sx={{ textAlign: "center", py: 8 }}>
-              <DiamondIcon sx={{ fontSize: 64, color: "secondary.main", opacity: 0.2, mb: 2 }} />
-              <Typography color="text.secondary">No products yet. Check back soon.</Typography>
+            <LoadingSpinner message="Loading gemstones..." />
+          ) : gems.length === 0 ? (
+            <Box sx={{ textAlign: "center", py: 6 }}>
+              <DiamondIcon sx={{ fontSize: 56, color: "secondary.main", opacity: 0.2, mb: 2 }} />
+              <Typography color="text.secondary">No gemstones available yet. Check back soon.</Typography>
             </Box>
           ) : (
             <Box className="row g-4 align-items-stretch">
-              {featured.map((product) => (
-                <Box key={product.id} className="col-12 col-sm-6 col-md-4 lumina-grid-col">
+              {gems.map((product) => (
+                <Box key={product.id} className="col-12 col-sm-6 col-md-4 col-lg-3 lumina-grid-col">
                   <ProductCard product={product} />
                 </Box>
               ))}
@@ -688,29 +699,208 @@ const HomePage = () => {
           )}
           <Box sx={{ textAlign: "center", mt: 6 }}>
             <Button
-              variant="outlined"
+              variant="contained"
               size="large"
               onClick={() => navigate("/gems")}
               sx={{
                 px: 5,
-                ...(isDark ? {} : {
-                  borderColor: "rgba(165,126,30,0.5)",
-                  color: "#A57E1E",
-                  "&:hover": { borderColor: "#A57E1E", bgcolor: "rgba(165,126,30,0.06)" },
-                }),
+                py: 1.4,
+                borderRadius: "30px !important",
+                border: isDark ? "1px solid rgba(201, 168, 76, 0.35) !important" : "1px solid rgba(27, 67, 50, 0.25) !important",
+                backdropFilter: "blur(16px)",
+                WebkitBackdropFilter: "blur(16px)",
+                background: isDark
+                  ? "rgba(201, 168, 76, 0.15) !important"
+                  : "rgba(27, 67, 50, 0.08) !important",
+                color: isDark ? "#F5D87A !important" : "#1B4332 !important",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.3)" : "0 4px 16px rgba(27, 67, 50, 0.08)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  border: isDark ? "1px solid rgba(201, 168, 76, 0.6) !important" : "1px solid #1B4332 !important",
+                  background: isDark
+                    ? "rgba(201, 168, 76, 0.32) !important"
+                    : "#1B4332 !important",
+                  color: "#FFFFFF !important",
+                  boxShadow: isDark
+                    ? "0 8px 24px rgba(201, 168, 76, 0.25)"
+                    : "0 8px 24px rgba(27, 67, 50, 0.28)",
+                  transform: "translateY(-2px)",
+                },
               }}
             >
-              View Full Collection
+              Show More Gems
+            </Button>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* ── 2. JEWELLERY SECTION ──────────────────────────────────────────────── */}
+      <Box
+        id="jewelry-section"
+        sx={{
+          py: SECTION_SPACING,
+          background: isDark ? "#0A0A0A" : "linear-gradient(180deg, #F5F7F5 0%, #FAF9F6 100%)",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <Box
+          sx={{
+            position: "absolute", inset: 0,
+            backgroundImage: isDark
+              ? "radial-gradient(ellipse at 85% 40%, rgba(201,168,76,0.08) 0%, transparent 60%), radial-gradient(ellipse at 15% 60%, rgba(27,67,50,0.08) 0%, transparent 60%)"
+              : "radial-gradient(ellipse at 85% 40%, rgba(165,126,30,0.05) 0%, transparent 60%), radial-gradient(ellipse at 15% 60%, rgba(45,106,79,0.04) 0%, transparent 60%)",
+            pointerEvents: "none",
+          }}
+        />
+        <Box className="container lumina-section-container" sx={{ position: "relative", zIndex: 1 }}>
+          <SectionTitle
+            overline="Artisanal Luxury"
+            title="Exquisite Jewellery"
+            subtitle="From delicate necklaces to statement rings — handcrafted with exceptional brilliance and master artistry."
+          />
+          {loading ? (
+            <LoadingSpinner message="Loading jewelry..." />
+          ) : jewelry.length === 0 ? (
+            <Box sx={{ textAlign: "center", py: 6 }}>
+              <AutoAwesomeIcon sx={{ fontSize: 56, color: "secondary.main", opacity: 0.2, mb: 2 }} />
+              <Typography color="text.secondary">No jewelry pieces available yet. Check back soon.</Typography>
+            </Box>
+          ) : (
+            <Box className="row g-4 align-items-stretch">
+              {jewelry.map((product) => (
+                <Box key={product.id} className="col-12 col-sm-6 col-md-4 col-lg-3 lumina-grid-col">
+                  <ProductCard product={product} />
+                </Box>
+              ))}
+            </Box>
+          )}
+          <Box sx={{ textAlign: "center", mt: 6 }}>
+            <Button
+              variant="contained"
+              size="large"
+              onClick={() => navigate("/jewelry")}
+              sx={{
+                px: 5,
+                py: 1.4,
+                borderRadius: "30px !important",
+                border: isDark ? "1px solid rgba(201, 168, 76, 0.35) !important" : "1px solid rgba(27, 67, 50, 0.25) !important",
+                backdropFilter: "blur(16px)",
+                WebkitBackdropFilter: "blur(16px)",
+                background: isDark
+                  ? "rgba(201, 168, 76, 0.15) !important"
+                  : "rgba(27, 67, 50, 0.08) !important",
+                color: isDark ? "#F5D87A !important" : "#1B4332 !important",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.3)" : "0 4px 16px rgba(27, 67, 50, 0.08)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  border: isDark ? "1px solid rgba(201, 168, 76, 0.6) !important" : "1px solid #1B4332 !important",
+                  background: isDark
+                    ? "rgba(201, 168, 76, 0.32) !important"
+                    : "#1B4332 !important",
+                  color: "#FFFFFF !important",
+                  boxShadow: isDark
+                    ? "0 8px 24px rgba(201, 168, 76, 0.25)"
+                    : "0 8px 24px rgba(27, 67, 50, 0.28)",
+                  transform: "translateY(-2px)",
+                },
+              }}
+            >
+              Show More Jewellery
+            </Button>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* ── 3. COLLECTIONS SECTION ────────────────────────────────────────────── */}
+      <Box
+        id="collections-section"
+        sx={{
+          py: SECTION_SPACING,
+          background: isDark ? "transparent" : "linear-gradient(180deg, #FAF9F6 0%, #FFFFFF 100%)",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <Box
+          sx={{
+            position: "absolute", inset: 0,
+            backgroundImage: isDark
+              ? "radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.06) 0%, transparent 70%)"
+              : "radial-gradient(ellipse at 50% 50%, rgba(165,126,30,0.04) 0%, transparent 70%)",
+            pointerEvents: "none",
+          }}
+        />
+        <Box className="container lumina-section-container" sx={{ position: "relative", zIndex: 1 }}>
+          <SectionTitle
+            overline="Signature Series"
+            title="Curated Collections"
+            subtitle="Themed luxury selections crafted for milestones, bridal splendor, and timeless moments."
+          />
+          {loading ? (
+            <LoadingSpinner message="Loading collections..." />
+          ) : collections.length === 0 ? (
+            <Box sx={{ textAlign: "center", py: 6 }}>
+              <EmojiEventsIcon sx={{ fontSize: 56, color: "secondary.main", opacity: 0.2, mb: 2 }} />
+              <Typography color="text.secondary">No collections available yet. Check back soon.</Typography>
+            </Box>
+          ) : (
+            <Box className="row g-4 align-items-stretch">
+              {collections.map((col) => (
+                <Box key={col.id} className="col-12 col-sm-6 col-md-4 col-lg-3 lumina-grid-col">
+                  <CollectionCard collection={col} />
+                </Box>
+              ))}
+            </Box>
+          )}
+          <Box sx={{ textAlign: "center", mt: 6 }}>
+            <Button
+              variant="contained"
+              size="large"
+              onClick={() => navigate("/collections")}
+              sx={{
+                px: 5,
+                py: 1.4,
+                borderRadius: "30px !important",
+                border: isDark ? "1px solid rgba(201, 168, 76, 0.35) !important" : "1px solid rgba(27, 67, 50, 0.25) !important",
+                backdropFilter: "blur(16px)",
+                WebkitBackdropFilter: "blur(16px)",
+                background: isDark
+                  ? "rgba(201, 168, 76, 0.15) !important"
+                  : "rgba(27, 67, 50, 0.08) !important",
+                color: isDark ? "#F5D87A !important" : "#1B4332 !important",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.3)" : "0 4px 16px rgba(27, 67, 50, 0.08)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  border: isDark ? "1px solid rgba(201, 168, 76, 0.6) !important" : "1px solid #1B4332 !important",
+                  background: isDark
+                    ? "rgba(201, 168, 76, 0.32) !important"
+                    : "#1B4332 !important",
+                  color: "#FFFFFF !important",
+                  boxShadow: isDark
+                    ? "0 8px 24px rgba(201, 168, 76, 0.25)"
+                    : "0 8px 24px rgba(27, 67, 50, 0.28)",
+                  transform: "translateY(-2px)",
+                },
+              }}
+            >
+              Show More Collections
             </Button>
           </Box>
         </Box>
       </Box>
 
       {/* ── CATEGORY BANNERS ─────────────────────────────────────────────────── */}
-      <Box
+      {/* <Box
         sx={{
           py: SECTION_SPACING,
-          background: isDark ? "#0C0C0C" : "linear-gradient(180deg, #F7F0E2 0%, #EDE3D0 100%)",
+          background: isDark ? "#0C0C0C" : "linear-gradient(180deg, #FFFFFF 0%, #F5F4F0 100%)",
           position: "relative",
           overflow: "hidden",
         }}
@@ -720,7 +910,7 @@ const HomePage = () => {
             position: "absolute", inset: 0,
             backgroundImage: isDark
               ? "linear-gradient(45deg, rgba(201,168,76,0.02) 25%, transparent 25%, transparent 75%, rgba(201,168,76,0.02) 75%), linear-gradient(45deg, rgba(201,168,76,0.02) 25%, transparent 25%, transparent 75%, rgba(201,168,76,0.02) 75%)"
-              : "linear-gradient(45deg, rgba(165,126,30,0.04) 25%, transparent 25%, transparent 75%, rgba(165,126,30,0.04) 75%), linear-gradient(45deg, rgba(165,126,30,0.04) 25%, transparent 25%, transparent 75%, rgba(165,126,30,0.04) 75%)",
+              : "linear-gradient(45deg, rgba(165,126,30,0.03) 25%, transparent 25%, transparent 75%, rgba(165,126,30,0.03) 75%), linear-gradient(45deg, rgba(165,126,30,0.03) 25%, transparent 25%, transparent 75%, rgba(165,126,30,0.03) 75%)",
             backgroundSize: "60px 60px",
             backgroundPosition: "0 0, 30px 30px",
             pointerEvents: "none",
@@ -736,10 +926,10 @@ const HomePage = () => {
           </Box>
           <CategoryBanner />
         </Box>
-      </Box>
+      </Box> */}
 
       {/* ── WHY US ───────────────────────────────────────────────────────────── */}
-      <Box
+      {/* <Box
         sx={{
           py: SECTION_SPACING,
           background: isDark ? "transparent" : "linear-gradient(180deg, #EDE3D0 0%, #F7F2E6 100%)",
@@ -829,7 +1019,7 @@ const HomePage = () => {
             ))}
           </Box>
         </Box>
-      </Box>
+      </Box> */}
 
       {/* ── CTA BANNER ───────────────────────────────────────────────────────── */}
       <Box
@@ -878,38 +1068,62 @@ const HomePage = () => {
             Explore a world of certified gemstones and bespoke jewelry crafted exclusively for
             the discerning collector.
           </Typography>
-          <Box sx={{ display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap" }}>
+          <Box sx={{ display: "flex", gap: 2.5, justifyContent: "center", flexWrap: "wrap" }}>
             <Button
               variant="contained"
               size="large"
               onClick={() => navigate("/gems")}
               sx={{
-                px: 5, py: 1.6,
-                background: "linear-gradient(135deg, #C9A84C 0%, #E0C270 100%)",
-                color: "#1A150A",
+                px: { xs: 4, sm: 5 },
+                py: 1.6,
+                borderRadius: "30px !important",
+                border: "1.5px solid rgba(255, 224, 130, 0.6) !important",
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+                background: "linear-gradient(135deg, #1B4332 0%, #2D6A4F 60%, #1B4332 100%) !important",
+                color: "#FFFFFF !important",
                 fontWeight: 700,
-                boxShadow: "0 6px 28px rgba(201,168,76,0.5)",
+                letterSpacing: "0.08em",
+                boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(45, 106, 79, 0.45) !important",
+                transition: "all 0.3s ease",
                 "&:hover": {
-                  background: "linear-gradient(135deg, #A57E1E 0%, #C9A84C 100%)",
-                  boxShadow: "0 8px 36px rgba(201,168,76,0.65)",
-                  transform: "translateY(-2px)",
+                  border: "1.5px solid rgba(255, 224, 130, 0.9) !important",
+                  background: "linear-gradient(135deg, #2D6A4F 0%, #40916C 60%, #2D6A4F 100%) !important",
+                  color: "#FFFFFF !important",
+                  boxShadow: "0 14px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(64, 145, 108, 0.6) !important",
+                  transform: "translateY(-3px)",
                 },
               }}
             >
               Shop Now
             </Button>
             <Button
-              variant="outlined"
+              variant="contained"
               size="large"
               onClick={() => navigate("/about")}
               sx={{
-                px: 5, py: 1.6,
-                borderColor: "rgba(255,255,255,0.45)",
-                color: "rgba(255,255,255,0.9)",
-                "&:hover": { borderColor: "#FFFFFF", bgcolor: "rgba(255,255,255,0.08)" },
+                px: { xs: 4, sm: 5 },
+                py: 1.6,
+                borderRadius: "30px !important",
+                border: "1.5px solid rgba(255, 255, 255, 0.6) !important",
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+                background: "rgba(255, 255, 255, 0.18) !important",
+                color: "#FFFFFF !important",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                boxShadow: "0 8px 28px rgba(0, 0, 0, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.5) !important",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  border: "1.5px solid rgba(255, 255, 255, 0.95) !important",
+                  background: "rgba(255, 255, 255, 0.35) !important",
+                  color: "#FFFFFF !important",
+                  boxShadow: "0 12px 36px rgba(0, 0, 0, 0.55), inset 0 1px 3px rgba(255, 255, 255, 0.8) !important",
+                  transform: "translateY(-3px)",
+                },
               }}
             >
-              Our Story
+              About Our Heritage
             </Button>
           </Box>
         </Box>

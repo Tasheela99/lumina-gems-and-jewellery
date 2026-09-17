@@ -19,37 +19,37 @@ export const createAppTheme = (mode = 'dark') => {
       mode,
 
       primary: {
-        main: isDark ? '#1B4332' : '#2D6A4F',
-        light: isDark ? '#2D6A4F' : '#4F8A6F',
-        dark: isDark ? '#0D2B20' : '#1B4332',
+        main: isDark ? '#1B4332' : '#1B4332',
+        light: isDark ? '#2D6A4F' : '#2D6A4F',
+        dark: isDark ? '#0D2B20' : '#0F291E',
         contrastText: '#FFFFFF',
       },
 
       secondary: {
-        main: isDark ? '#C9A84C' : '#A57E1E',
-        light: isDark ? '#E0C270' : '#C9A84C',
-        dark: isDark ? '#9A7B2E' : '#7D5E12',
+        main: isDark ? '#C9A84C' : '#9E7718',
+        light: isDark ? '#E0C270' : '#B88E28',
+        dark: isDark ? '#9A7B2E' : '#7A5B0F',
         contrastText: isDark ? '#0A0A0A' : '#FFFFFF',
       },
 
       background: {
-        default: isDark ? '#0A0A0A' : '#F6F4EE',
+        default: isDark ? '#0A0A0A' : '#F8F7F4',
         paper: isDark ? '#141414' : '#FFFFFF',
       },
 
       text: {
-        primary: isDark ? '#F5F5F0' : '#1F1B13',
-        secondary: isDark ? '#A0A09A' : '#665F52',
+        primary: isDark ? '#F5F5F0' : '#141412',
+        secondary: isDark ? '#A0A09A' : '#4E4E49',
       },
 
-      divider: isDark ? 'rgba(201,168,76,0.2)' : 'rgba(165,126,30,0.25)',
+      divider: isDark ? 'rgba(201,168,76,0.2)' : 'rgba(158,119,24,0.18)',
 
       custom: {
-        gold: '#C9A84C',
-        goldLight: '#E0C270',
-        surface: isDark ? '#1A1A1A' : '#F0ECE2',
-        surfaceHover: isDark ? '#222222' : '#E7E1D3',
-        border: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(31,27,19,0.12)',
+        gold: isDark ? '#C9A84C' : '#9E7718',
+        goldLight: isDark ? '#E0C270' : '#B88E28',
+        surface: isDark ? '#1A1A1A' : '#F2EFEB',
+        surfaceHover: isDark ? '#222222' : '#E8E4DD',
+        border: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,18,0.08)',
       },
     },
 
@@ -127,39 +127,74 @@ export const createAppTheme = (mode = 'dark') => {
     components: {
     // ── Button ──────────────────────────────────────────────────────────────
     MuiButton: {
+      defaultProps: {
+        disableElevation: false,
+        disableRipple: false,
+      },
       styleOverrides: {
         root: {
-          borderRadius: 2,
-          padding: '10px 28px',
-          transition: 'all 0.3s ease',
+          borderRadius: 10,
+          padding: '10px 24px',
+          outline: 'none',
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          fontWeight: 600,
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:focus': { outline: 'none' },
         },
         containedPrimary: {
           background: isDark
             ? 'linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%)'
-            : 'linear-gradient(135deg, #2D6A4F 0%, #4F8A6F 100%)',
+            : 'linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%)',
+          color: '#FFFFFF',
+          border: 'none',
+          boxShadow: '0 4px 20px rgba(27, 67, 50, 0.4)',
           '&:hover': {
             background: isDark
-              ? 'linear-gradient(135deg, #2D6A4F 0%, #1B4332 100%)'
-              : 'linear-gradient(135deg, #4F8A6F 0%, #2D6A4F 100%)',
-            boxShadow: '0 4px 20px rgba(27,67,50,0.5)',
+              ? 'linear-gradient(135deg, #2D6A4F 0%, #40916C 100%)'
+              : 'linear-gradient(135deg, #2D6A4F 0%, #40916C 100%)',
+            boxShadow: '0 8px 30px rgba(27, 67, 50, 0.55)',
           },
         },
         containedSecondary: {
           background: isDark
-            ? 'linear-gradient(135deg, #C9A84C 0%, #E0C270 100%)'
-            : 'linear-gradient(135deg, #A57E1E 0%, #C9A84C 100%)',
-          color: isDark ? '#0A0A0A' : '#FFFFFF',
+            ? 'rgba(201, 168, 76, 0.28)'
+            : 'rgba(165, 126, 30, 0.22)',
+          color: isDark ? '#F5D87A' : '#7D5E12',
+          border: 'none',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          boxShadow: isDark
+            ? '0 4px 20px rgba(201, 168, 76, 0.15)'
+            : '0 4px 16px rgba(165, 126, 30, 0.12)',
           '&:hover': {
-            background: 'linear-gradient(135deg, #9A7B2E 0%, #C9A84C 100%)',
-            boxShadow: '0 4px 20px rgba(201,168,76,0.4)',
+            background: isDark
+              ? 'rgba(201, 168, 76, 0.45)'
+              : 'rgba(165, 126, 30, 0.38)',
+            color: isDark ? '#FFFFFF' : '#0A0A0A',
+            boxShadow: '0 8px 30px rgba(201, 168, 76, 0.35)',
           },
         },
         outlined: {
-          borderColor: 'rgba(201,168,76,0.5)',
-          color: '#C9A84C',
+          border: isDark ? '1px solid rgba(201, 168, 76, 0.4)' : '1px solid rgba(165, 126, 30, 0.4)',
+          background: isDark
+            ? 'rgba(201, 168, 76, 0.12)'
+            : 'rgba(165, 126, 30, 0.10)',
+          color: isDark ? '#E0C270' : '#8C6710',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
           '&:hover': {
-            borderColor: '#C9A84C',
-            backgroundColor: 'rgba(201,168,76,0.08)',
+            background: isDark
+              ? 'rgba(201, 168, 76, 0.28)'
+              : 'rgba(165, 126, 30, 0.22)',
+            color: isDark ? '#FFFFFF' : '#1A150A',
+            boxShadow: '0 8px 24px rgba(201, 168, 76, 0.25)',
+          },
+        },
+        text: {
+          background: 'transparent',
+          '&:hover': {
+            background: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
           },
         },
       },
@@ -169,8 +204,10 @@ export const createAppTheme = (mode = 'dark') => {
     MuiCard: {
       styleOverrides: {
         root: {
-          backgroundColor: isDark ? '#141414' : '#FFFFFF',
-          border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(31,27,19,0.08)',
+          backgroundColor: isDark ? 'rgba(20, 20, 20, 0.7)' : 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(31,27,19,0.06)',
           transition: 'transform 0.3s ease, box-shadow 0.3s ease',
           '&:hover': {
             transform: 'translateY(-4px)',
@@ -216,9 +253,10 @@ export const createAppTheme = (mode = 'dark') => {
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: isDark ? 'rgba(10,10,10,0.92)' : 'rgba(246,244,238,0.92)',
-          backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(201,168,76,0.15)',
+          backgroundColor: 'transparent',
+          backgroundImage: 'none',
+          border: 'none !important',
+          boxShadow: 'none',
         },
       },
     },

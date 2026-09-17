@@ -21,7 +21,6 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { useSnackbar } from '../components/SnackbarAlert';
 import { useCart } from '../context/CartContext';
 import { getProductBySlugOrId } from '../services/firebase';
-import { formatCurrency } from '../utils/formatCurrency';
 import { updateSEO } from '../utils/seo';
 
 const ProductDetailPage = () => {
@@ -67,16 +66,32 @@ const ProductDetailPage = () => {
         <Typography variant="h4" sx={{ fontFamily: '"Playfair Display", serif', mb: 2 }}>
           Product Not Found
         </Typography>
-        <Button variant="outlined" onClick={() => navigate(-1)}>Go Back</Button>
+        <Button
+          onClick={() => navigate(-1)}
+          sx={{
+            border: 'none !important',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            background: 'rgba(201, 168, 76, 0.14)',
+            color: 'secondary.main',
+            px: 3,
+            py: 1,
+            borderRadius: 2,
+            '&:hover': {
+              border: 'none !important',
+              background: 'rgba(201, 168, 76, 0.28)',
+            },
+          }}
+        >
+          Go Back
+        </Button>
       </Box>
     );
   }
 
   const inCart = isInCart(product.id);
-  const outOfStock = !product.stock || product.stock <= 0;
 
   const handleAddToCart = () => {
-    if (outOfStock) return;
     addToCart(product);
     showSnackbar(`"${product.name}" added to cart`, 'success');
   };
@@ -110,7 +125,23 @@ const ProductDetailPage = () => {
         <Button
           startIcon={<ArrowBackIcon />}
           onClick={() => navigate(-1)}
-          sx={{ color: 'text.secondary', mb: 4, '&:hover': { color: 'secondary.main' }, fontSize: '0.8rem' }}
+          sx={{
+            color: 'text.secondary',
+            mb: 4,
+            border: 'none !important',
+            background: 'rgba(255,255,255,0.04)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            borderRadius: 2,
+            px: 2,
+            py: 0.8,
+            '&:hover': {
+              color: 'secondary.main',
+              background: 'rgba(201,168,76,0.12)',
+              border: 'none !important',
+            },
+            fontSize: '0.8rem',
+          }}
         >
           Back
         </Button>
@@ -144,22 +175,9 @@ const ProductDetailPage = () => {
             {/* Name */}
             <Typography
               variant="h3"
-              sx={{ fontFamily: '"Playfair Display", serif', mb: 1, lineHeight: 1.2 }}
+              sx={{ fontFamily: '"Playfair Display", serif', mb: 3, lineHeight: 1.2 }}
             >
               {product.name}
-            </Typography>
-
-            {/* Price */}
-            <Typography
-              variant="h4"
-              sx={{
-                color: 'secondary.main',
-                mb: 3,
-                fontFamily: '"Playfair Display", serif',
-                fontWeight: 500,
-              }}
-            >
-              {formatCurrency(product.price)}
             </Typography>
 
             <Divider sx={{ mb: 3 }} />
@@ -169,40 +187,55 @@ const ProductDetailPage = () => {
               {product.description}
             </Typography>
 
-            {/* Stock */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 4 }}>
-              <Box
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  bgcolor: outOfStock ? 'error.main' : 'success.main',
-                  boxShadow: outOfStock ? '0 0 8px #f44336' : '0 0 8px #66bb6a',
-                }}
-              />
-              <Typography variant="body2" color={outOfStock ? 'error.main' : 'success.main'} sx={{ fontWeight: 500 }}>
-                {outOfStock ? 'Out of Stock' : `In Stock (${product.stock} available)`}
-              </Typography>
-            </Box>
-
             {/* CTA */}
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 4 }}>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 4, mt: 2 }}>
               <Button
-                variant="contained"
                 color={inCart ? 'success' : 'secondary'}
                 size="large"
-                disabled={outOfStock}
                 startIcon={inCart ? <CheckCircleIcon /> : <ShoppingCartIcon />}
                 onClick={handleAddToCart}
-                sx={{ flex: 1, minWidth: 180, py: 1.5 }}
+                sx={{
+                  flex: 1,
+                  minWidth: 180,
+                  py: 1.5,
+                  border: 'none !important',
+                  borderRadius: 2.5,
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  background: inCart
+                    ? 'rgba(45, 106, 79, 0.75)'
+                    : 'rgba(201, 168, 76, 0.30)',
+                  color: inCart ? '#FFFFFF' : '#F5D87A',
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.25)',
+                  '&:hover': {
+                    border: 'none !important',
+                    background: inCart
+                      ? 'rgba(45, 106, 79, 0.90)'
+                      : 'rgba(201, 168, 76, 0.55)',
+                    color: '#FFFFFF',
+                    boxShadow: '0 12px 36px rgba(201, 168, 76, 0.35)',
+                  },
+                }}
               >
                 {inCart ? 'Added to Cart' : 'Add to Cart'}
               </Button>
               <Button
-                variant="outlined"
                 size="large"
                 onClick={() => navigate('/cart')}
-                sx={{ px: 3, py: 1.5 }}
+                sx={{
+                  px: 4,
+                  py: 1.5,
+                  border: 'none !important',
+                  borderRadius: 2.5,
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: 'text.primary',
+                  '&:hover': {
+                    border: 'none !important',
+                    background: 'rgba(255, 255, 255, 0.18)',
+                  },
+                }}
               >
                 View Cart
               </Button>

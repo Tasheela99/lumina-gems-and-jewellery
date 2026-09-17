@@ -87,3 +87,34 @@ body {
 	50%       { box-shadow: 0 0 14px var(--dot-color), 0 0 28px var(--dot-color); }
 }
 
+/* ── Global Button & Glassmorphism Defaults ────────────────────────── */
+button,
+.MuiButton-root {
+	outline: none;
+}
+
+.lumina-glass-panel {
+	background: rgba(20, 20, 20, 0.65);
+	backdrop-filter: blur(20px) saturate(160%);
+	-webkit-backdrop-filter: blur(20px) saturate(160%);
+	border: none !important;
+}
+
+/* ── Seamless Luxury Marquee Animation ───────────────────────────────────── */
+@keyframes lumina-marquee {
+	0%   { transform: translateX(0%); }
+	100% { transform: translateX(-50%); }
+}
+
+.lumina-marquee-track {
+	display: flex;
+	width: max-content;
+	animation: lumina-marquee 38s linear infinite;
+}
+
+.lumina-marquee-track:hover {
+	animation-play-state: paused;
+}
+
+
+

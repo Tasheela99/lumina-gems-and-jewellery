@@ -237,24 +237,43 @@ const OrderSummary = ({ subtotal, count, onCheckout, onClear, disabledCheckout }
       </Box>
 
       <Button
-        variant="contained"
-        color="secondary"
         fullWidth
         size="large"
         endIcon={<ArrowForwardIcon />}
         onClick={onCheckout}
         disabled={disabledCheckout}
-        sx={{ mb: 1.5, py: 1.4 }}
+        sx={{
+          mb: 1.5,
+          py: 1.5,
+          border: 'none !important',
+          borderRadius: 2.5,
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          background: 'rgba(201, 168, 76, 0.28)',
+          color: '#F5D87A',
+          boxShadow: '0 8px 24px rgba(201, 168, 76, 0.25)',
+          '&:hover': {
+            border: 'none !important',
+            background: 'rgba(201, 168, 76, 0.45)',
+            color: '#FFFFFF',
+            boxShadow: '0 10px 30px rgba(201, 168, 76, 0.40)',
+          },
+        }}
       >
         Proceed to Checkout
       </Button>
 
       <Button
-        variant="text"
         fullWidth
         size="small"
         onClick={onClear}
-        sx={{ color: 'text.secondary', fontSize: '0.75rem', '&:hover': { color: 'error.main' } }}
+        sx={{
+          color: 'text.secondary',
+          fontSize: '0.75rem',
+          border: 'none !important',
+          background: 'transparent',
+          '&:hover': { color: 'error.main', background: 'rgba(244, 67, 54, 0.08)', border: 'none !important' },
+        }}
       >
         Clear Cart
       </Button>
@@ -365,7 +384,25 @@ const CartPage = () => {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
               Explore our collection and add some beautiful pieces.
             </Typography>
-            <Button variant="contained" color="secondary" onClick={() => navigate('/')}>
+            <Button
+              onClick={() => navigate('/')}
+              sx={{
+                border: 'none !important',
+                borderRadius: 2,
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                background: 'rgba(201, 168, 76, 0.25)',
+                color: '#F5D87A',
+                px: 4,
+                py: 1.4,
+                fontWeight: 600,
+                '&:hover': {
+                  border: 'none !important',
+                  background: 'rgba(201, 168, 76, 0.45)',
+                  color: '#FFFFFF',
+                },
+              }}
+            >
               Continue Shopping
             </Button>
           </Box>
@@ -384,10 +421,21 @@ const CartPage = () => {
                 ))}
               </Box>
               <Button
-                variant="text"
                 startIcon={<ArrowForwardIcon sx={{ transform: 'rotate(180deg)' }} />}
                 onClick={() => navigate('/')}
-                sx={{ mt: 3, color: 'text.secondary', '&:hover': { color: 'secondary.main' }, fontSize: '0.8rem' }}
+                sx={{
+                  mt: 3,
+                  color: 'text.secondary',
+                  border: 'none !important',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  borderRadius: 2,
+                  px: 2.5,
+                  py: 1,
+                  '&:hover': { color: 'secondary.main', background: 'rgba(201, 168, 76, 0.12)', border: 'none !important' },
+                  fontSize: '0.8rem',
+                }}
               >
                 Continue Shopping
               </Button>
@@ -413,11 +461,19 @@ const CartPage = () => {
         onClose={() => !checkoutLoading && setCheckoutOpen(false)}
         fullWidth
         maxWidth="sm"
-        PaperProps={{ sx: { bgcolor: 'background.paper', border: '1px solid rgba(201,168,76,0.15)' } }}
+        PaperProps={{
+          sx: {
+            bgcolor: 'rgba(20, 20, 20, 0.90)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: 'none',
+            borderRadius: 3,
+          },
+        }}
       >
         <DialogTitle sx={{ fontFamily: '"Playfair Display", serif', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           Checkout Details
-          <IconButton onClick={() => !checkoutLoading && setCheckoutOpen(false)} size="small" disabled={checkoutLoading}>
+          <IconButton onClick={() => !checkoutLoading && setCheckoutOpen(false)} size="small" disabled={checkoutLoading} sx={{ border: 'none' }}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
@@ -442,10 +498,39 @@ const CartPage = () => {
             </Box>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            <Button onClick={() => setCheckoutOpen(false)} disabled={checkoutLoading} sx={{ color: 'text.secondary' }}>
+            <Button
+              onClick={() => setCheckoutOpen(false)}
+              disabled={checkoutLoading}
+              sx={{
+                color: 'text.secondary',
+                border: 'none !important',
+                background: 'transparent',
+                '&:hover': { background: 'rgba(255,255,255,0.08)', border: 'none !important' },
+              }}
+            >
               Cancel
             </Button>
-            <Button type="submit" variant="contained" color="secondary" disabled={checkoutLoading} startIcon={checkoutLoading ? <CircularProgress size={20} /> : null}>
+            <Button
+              type="submit"
+              disabled={checkoutLoading}
+              startIcon={checkoutLoading ? <CircularProgress size={20} /> : null}
+              sx={{
+                border: 'none !important',
+                borderRadius: 2,
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                background: 'rgba(201, 168, 76, 0.35)',
+                color: '#F5D87A',
+                px: 3.5,
+                py: 1,
+                fontWeight: 600,
+                '&:hover': {
+                  border: 'none !important',
+                  background: 'rgba(201, 168, 76, 0.60)',
+                  color: '#FFFFFF',
+                },
+              }}
+            >
               {checkoutLoading ? 'Placing Order...' : 'Place Order'}
             </Button>
           </DialogActions>

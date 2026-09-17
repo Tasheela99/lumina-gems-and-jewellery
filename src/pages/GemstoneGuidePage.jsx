@@ -103,7 +103,7 @@ const GemstoneGuidePage = () => {
     listContent = (
       <Box className="row g-4 align-items-stretch">
         {filteredGemstones.map((g) => (
-          <Box key={g.id} className="col-12 col-sm-6 col-md-4 lumina-grid-col">
+          <Box key={g.id} className="col-12 col-sm-6 col-md-4 col-lg-3 lumina-grid-col">
             <GemstoneCard gemstone={g} language={language} />
           </Box>
         ))}

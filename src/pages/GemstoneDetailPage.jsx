@@ -113,7 +113,25 @@ const GemstoneDetailPage = () => {
         <Typography variant="h4" sx={{ fontFamily: '"Playfair Display", serif', mb: 2 }}>
           Gemstone Not Found
         </Typography>
-        <Button variant="outlined" onClick={() => navigate(-1)}>Go Back</Button>
+        <Button
+          onClick={() => navigate(-1)}
+          sx={{
+            border: 'none !important',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            background: 'rgba(201, 168, 76, 0.14)',
+            color: 'secondary.main',
+            px: 3,
+            py: 1,
+            borderRadius: 2,
+            '&:hover': {
+              border: 'none !important',
+              background: 'rgba(201, 168, 76, 0.28)',
+            },
+          }}
+        >
+          Go Back
+        </Button>
       </Box>
     );
   }
@@ -156,7 +174,23 @@ const GemstoneDetailPage = () => {
         <Button
           startIcon={<ArrowBackIcon />}
           onClick={() => navigate(-1)}
-          sx={{ color: 'text.secondary', mb: 4, '&:hover': { color: 'secondary.main' }, fontSize: '0.8rem' }}
+          sx={{
+            color: 'text.secondary',
+            mb: 4,
+            border: 'none !important',
+            background: 'rgba(255,255,255,0.04)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            borderRadius: 2,
+            px: 2,
+            py: 0.8,
+            '&:hover': {
+              color: 'secondary.main',
+              background: 'rgba(201,168,76,0.12)',
+              border: 'none !important',
+            },
+            fontSize: '0.8rem',
+          }}
         >
           Back
         </Button>
@@ -234,8 +268,22 @@ const GemstoneDetailPage = () => {
               <Button
                 component={RouterLink}
                 to="/gemstone-guide"
-                variant="outlined"
-                color="secondary"
+                sx={{
+                  border: 'none !important',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  background: 'rgba(201, 168, 76, 0.18)',
+                  color: 'secondary.main',
+                  px: 4,
+                  py: 1.4,
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  '&:hover': {
+                    border: 'none !important',
+                    background: 'rgba(201, 168, 76, 0.35)',
+                    color: '#FFFFFF',
+                  },
+                }}
               >
                 Back to Guide
               </Button>

@@ -35,8 +35,23 @@ const EmptyState = ({
       </Typography>
       {actionLabel && (
         <Button
-          variant="outlined"
-          sx={{ mt: 2 }}
+          sx={{
+            mt: 2,
+            border: 'none !important',
+            borderRadius: 2,
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            background: 'rgba(201, 168, 76, 0.20)',
+            color: 'secondary.main',
+            px: 3.5,
+            py: 1.2,
+            fontWeight: 600,
+            '&:hover': {
+              border: 'none !important',
+              background: 'rgba(201, 168, 76, 0.35)',
+              color: '#FFFFFF',
+            },
+          }}
           onClick={() => navigate(actionPath)}
         >
           {actionLabel}

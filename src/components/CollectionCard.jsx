@@ -1,127 +1,185 @@
-import { Box, Typography } from '@mui/material';
-import { Link } from 'react-router-dom';
+// src/components/CollectionCard.jsx
+import DiamondIcon from '@mui/icons-material/Diamond';
+import {
+  Box,
+  Button,
+  Card,
+  CardActions,
+  CardContent,
+  CardMedia,
+  Typography,
+} from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
 const CollectionCard = ({ collection }) => {
+  const navigate = useNavigate();
+  const imageUrl = collection.thumbnailUrl || collection.bannerUrl;
+
+  const handleNavigate = (e) => {
+    e?.stopPropagation();
+    navigate(`/collections/${collection.slug || collection.id}`);
+  };
+
   return (
-    <Box
-      component={Link}
-      to={`/collections/${collection.slug}`}
-      sx={{
-        display: 'block',
-        textDecoration: 'none',
-        borderRadius: 2,
-        overflow: 'hidden',
-        bgcolor: 'background.paper',
-        border: '1px solid rgba(255,255,255,0.06)',
-        transition: 'transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          borderColor: 'rgba(201,168,76,0.4)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-          '& .collection-img': {
-            transform: 'scale(1.05)',
-          }
-        }
+    <Card
+      className="h-100 d-flex flex-column"
+      onClick={handleNavigate}
+      sx={(theme) => {
+        const isDark = theme.palette.mode === 'dark';
+        return {
+          cursor: 'pointer',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: 3,
+          background: isDark
+            ? 'linear-gradient(180deg, #161616 0%, #111111 100%)'
+            : 'linear-gradient(180deg, #FFFFFF 0%, #FAF8F4 100%)',
+          border: isDark
+            ? '1px solid rgba(201, 168, 76, 0.18)'
+            : '1px solid rgba(27, 67, 50, 0.10)',
+          boxShadow: isDark
+            ? '0 4px 20px rgba(0, 0, 0, 0.4)'
+            : '0 4px 20px rgba(0, 0, 0, 0.05)',
+          transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': {
+            transform: 'translateY(-6px)',
+            borderColor: isDark ? 'rgba(201, 168, 76, 0.55)' : 'rgba(27, 67, 50, 0.35)',
+            boxShadow: isDark
+              ? '0 16px 40px rgba(0, 0, 0, 0.7), 0 0 20px rgba(201, 168, 76, 0.15)'
+              : '0 16px 40px rgba(0, 0, 0, 0.09), 0 0 20px rgba(27, 67, 50, 0.06)',
+            '& .card-image': {
+              transform: 'scale(1.06)',
+            },
+          },
+        };
       }}
     >
-      <Box sx={{ position: 'relative', width: '100%', paddingTop: '66%', overflow: 'hidden' }}>
-        {collection.thumbnailUrl || collection.bannerUrl ? (
-          <Box
+      {/* Image Container */}
+      <Box
+        sx={(theme) => {
+          const isDark = theme.palette.mode === 'dark';
+          return {
+            overflow: 'hidden',
+            height: 250,
+            position: 'relative',
+            background: isDark
+              ? 'radial-gradient(circle at center, #1E1E1E 0%, #121212 100%)'
+              : 'radial-gradient(circle at center, #FFFFFF 0%, #F5EFE4 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          };
+        }}
+      >
+        {imageUrl ? (
+          <CardMedia
             component="img"
-            src={collection.thumbnailUrl || collection.bannerUrl}
+            image={imageUrl}
             alt={collection.name}
-            className="collection-img"
+            className="card-image"
             sx={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
               height: '100%',
+              width: '100%',
               objectFit: 'cover',
               transition: 'transform 0.5s ease',
             }}
           />
         ) : (
           <Box
-            sx={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
+            className="card-image"
+            sx={(theme) => ({
               height: '100%',
-              bgcolor: 'rgba(255,255,255,0.02)',
+              width: '100%',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
-            }}
+              justifyContent: 'center',
+              transition: 'transform 0.5s ease',
+            })}
           >
-            <Typography variant="body2" color="text.secondary">No Image</Typography>
-          </Box>
-        )}
-        
-        {collection.featured && (
-          <Box
-            sx={{
-              position: 'absolute',
-              top: 12,
-              left: 12,
-              bgcolor: 'secondary.main',
-              color: '#000',
-              px: 1.5,
-              py: 0.5,
-              borderRadius: 1,
-              fontSize: '0.7rem',
-              fontWeight: 600,
-              letterSpacing: '0.05em',
-              textTransform: 'uppercase'
-            }}
-          >
-            Featured
+            <DiamondIcon
+              sx={(theme) => ({
+                fontSize: 64,
+                color: theme.palette.mode === 'dark' ? '#C9A84C' : '#2D6A4F',
+                opacity: 0.35,
+              })}
+            />
           </Box>
         )}
       </Box>
 
-      <Box sx={{ p: 3, textAlign: 'center' }}>
+      {/* Content: Name only */}
+      <CardContent
+        sx={{
+          flexGrow: 1,
+          px: 2.5,
+          py: 2,
+          textAlign: 'center',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <Typography
           variant="h6"
-          sx={{
+          sx={(theme) => ({
             fontFamily: '"Playfair Display", serif',
-            color: 'text.primary',
-            mb: 0.5
-          }}
+            fontSize: '1.02rem',
+            fontWeight: 600,
+            lineHeight: 1.35,
+            color: theme.palette.mode === 'dark' ? '#F5F5F0' : '#141412',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            letterSpacing: '0.01em',
+          })}
         >
           {collection.name}
         </Typography>
-        
-        <Typography
-          variant="caption"
-          sx={{
-            color: 'secondary.main',
-            display: 'block',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            mb: 1
+      </CardContent>
+
+      {/* Actions: Show More button */}
+      <CardActions sx={{ px: 2.5, pb: 2.5, pt: 0 }}>
+        <Button
+          size="small"
+          fullWidth
+          onClick={handleNavigate}
+          sx={(theme) => {
+            const isDark = theme.palette.mode === 'dark';
+            return {
+              fontSize: '0.74rem',
+              py: 1.1,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              fontWeight: 600,
+              borderRadius: 2,
+              border: 'none !important',
+              outline: 'none',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              color: isDark ? '#F5D87A' : '#1B4332',
+              backgroundColor: isDark ? 'rgba(201, 168, 76, 0.14)' : 'rgba(27, 67, 50, 0.08)',
+              boxShadow: isDark ? 'none' : '0 2px 10px rgba(27, 67, 50, 0.05)',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                border: 'none !important',
+                backgroundColor: isDark ? 'rgba(201, 168, 76, 0.32)' : '#1B4332',
+                color: '#FFFFFF',
+                boxShadow: isDark
+                  ? '0 6px 22px rgba(201, 168, 76, 0.30)'
+                  : '0 6px 22px rgba(27, 67, 50, 0.25)',
+                transform: 'translateY(-1px)',
+              },
+            };
           }}
         >
-          {collection.type || 'Collection'}
-        </Typography>
-
-        {collection.shortDescription && (
-          <Typography
-            variant="body2"
-            sx={{
-              color: 'text.secondary',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden'
-            }}
-          >
-            {collection.shortDescription}
-          </Typography>
-        )}
-      </Box>
-    </Box>
+          Show More
+        </Button>
+      </CardActions>
+    </Card>
   );
 };
 

@@ -73,9 +73,9 @@ const CollectionsPage = () => {
                 <Typography variant="h4" sx={{ fontFamily: '"Playfair Display", serif', mb: 4 }}>
                   Featured Collections
                 </Typography>
-                <Box className="row g-4">
+                <Box className="row g-4 align-items-stretch">
                   {featured.map(col => (
-                    <Box key={col.id} className="col-12 col-md-6 col-lg-4">
+                    <Box key={col.id} className="col-12 col-sm-6 col-md-4 col-lg-3 lumina-grid-col">
                       <CollectionCard collection={col} />
                     </Box>
                   ))}
@@ -88,9 +88,9 @@ const CollectionsPage = () => {
                 <Typography variant="h4" sx={{ fontFamily: '"Playfair Display", serif', mb: 4 }}>
                   All Collections
                 </Typography>
-                <Box className="row g-4">
+                <Box className="row g-4 align-items-stretch">
                   {others.map(col => (
-                    <Box key={col.id} className="col-12 col-md-6 col-lg-4">
+                    <Box key={col.id} className="col-12 col-sm-6 col-md-4 col-lg-3 lumina-grid-col">
                       <CollectionCard collection={col} />
                     </Box>
                   ))}

@@ -158,16 +158,6 @@ const CollectionDetailPage = () => {
                     <Typography variant="body2">{collection.primaryGemstone}</Typography>
                   </Box>
                 )}
-                {(collection.startingPrice > 0 || collection.maxPrice > 0) && (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Price Range</Typography>
-                    <Typography variant="body2" color="secondary.main" fontWeight={500}>
-                      {collection.startingPrice ? `Rs. ${collection.startingPrice.toLocaleString()}` : ''}
-                      {collection.startingPrice && collection.maxPrice ? ' - ' : ''}
-                      {collection.maxPrice ? `Rs. ${collection.maxPrice.toLocaleString()}` : ''}
-                    </Typography>
-                  </Box>
-                )}
               </Box>
             </Box>
           </Box>
@@ -183,10 +173,10 @@ const CollectionDetailPage = () => {
               Explore the exquisite items featured in this collection.
             </Typography>
             
-            <Box className="row g-4">
+            <Box className="row g-4 align-items-stretch">
               {products.map(product => (
-                <Box key={product.id} className="col-12 col-md-6 col-lg-3 lumina-grid-col">
-                  <ProductCard product={product} hidePrice hideActions />
+                <Box key={product.id} className="col-12 col-sm-6 col-md-4 col-lg-3 lumina-grid-col">
+                  <ProductCard product={product} />
                 </Box>
               ))}
             </Box>

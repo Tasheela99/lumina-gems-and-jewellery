@@ -122,6 +122,19 @@ const Footer = () => {
                   {label}
                 </Link>
               ))}
+              <Link
+                component="button"
+                onClick={() => navigate('/admin')}
+                underline="none"
+                sx={{
+                  textAlign: "left",
+                  color: "text.secondary",
+                  fontSize: "0.8rem",
+                  "&:hover": { color: "#C9A84C" },
+                }}
+              >
+                Login
+              </Link>
             </Box>
           </Box>
 
