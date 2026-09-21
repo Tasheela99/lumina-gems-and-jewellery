@@ -8,11 +8,15 @@ import {
     CardMedia,
     Chip,
     Typography,
+    useTheme,
 } from '@mui/material';
 import { useMemo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 
 const GemstoneCard = ({ gemstone, language = 'en' }) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+
   const categories = useMemo(() => {
     const list = Array.isArray(gemstone?.categories) ? gemstone.categories : [];
     return list.filter(Boolean);
@@ -34,34 +38,29 @@ const GemstoneCard = ({ gemstone, language = 'en' }) => {
   return (
     <Card
       className="h-100 d-flex flex-column"
-      sx={(theme) => ({
+      sx={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        background:
-          theme.palette.mode === 'dark'
-            ? 'linear-gradient(145deg, #181818 0%, #141414 100%)'
-            : 'linear-gradient(180deg, #FFFFFF 0%, #FAF8F4 100%)',
-        border:
-          theme.palette.mode === 'dark'
-            ? '1px solid rgba(201,168,76,0.1)'
-            : '1px solid rgba(27, 67, 50, 0.10)',
-        boxShadow:
-          theme.palette.mode === 'dark'
-            ? 'none'
-            : '0 4px 20px rgba(0, 0, 0, 0.05)',
+        background: isDark
+          ? 'linear-gradient(145deg, #181818 0%, #141414 100%)'
+          : 'linear-gradient(180deg, #FFFFFF 0%, #FAF8F4 100%)',
+        border: isDark
+          ? '1px solid rgba(201,168,76,0.1)'
+          : '1px solid rgba(27, 67, 50, 0.10)',
+        boxShadow: isDark
+          ? 'none'
+          : '0 4px 20px rgba(0, 0, 0, 0.05)',
         '&:hover': {
-          border:
-            theme.palette.mode === 'dark'
-              ? '1px solid rgba(201,168,76,0.35)'
-              : '1px solid rgba(27, 67, 50, 0.35)',
-          boxShadow:
-            theme.palette.mode === 'dark'
-              ? '0 16px 40px rgba(0, 0, 0, 0.7)'
-              : '0 16px 40px rgba(0, 0, 0, 0.09)',
+          border: isDark
+            ? '1px solid rgba(201,168,76,0.35)'
+            : '1px solid rgba(27, 67, 50, 0.35)',
+          boxShadow: isDark
+            ? '0 16px 40px rgba(0, 0, 0, 0.7)'
+            : '0 16px 40px rgba(0, 0, 0, 0.09)',
         },
-      })}
+      }}
     >
       {/* Image */}
       <Box sx={{ overflow: 'hidden', height: 220, bgcolor: 'background.default' }}>
@@ -74,18 +73,17 @@ const GemstoneCard = ({ gemstone, language = 'en' }) => {
           />
         ) : (
           <Box
-            sx={(theme) => ({
+            sx={{
               height: '100%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background:
-                theme.palette.mode === 'dark'
-                  ? 'linear-gradient(135deg, #0D2B20 0%, #1A1A1A 100%)'
-                  : 'radial-gradient(circle at center, #FFFFFF 0%, #F5EFE4 100%)',
-            })}
+              background: isDark
+                ? 'linear-gradient(135deg, #0D2B20 0%, #1A1A1A 100%)'
+                : 'radial-gradient(circle at center, #FFFFFF 0%, #F5EFE4 100%)',
+            }}
           >
-            <DiamondIcon sx={{ fontSize: 64, color: theme.palette.mode === 'dark' ? '#C9A84C' : '#2D6A4F', opacity: 0.35 }} />
+            <DiamondIcon sx={{ fontSize: 64, color: isDark ? '#C9A84C' : '#2D6A4F', opacity: 0.35 }} />
           </Box>
         )}
       </Box>
@@ -98,7 +96,7 @@ const GemstoneCard = ({ gemstone, language = 'en' }) => {
               fontFamily: '"Playfair Display", serif',
               fontSize: '1.05rem',
               lineHeight: 1.25,
-              color: theme.palette.mode === 'dark' ? '#F5F5F0' : '#141412',
+              color: isDark ? '#F5F5F0' : '#141412',
             }}
           >
             {displayName}
@@ -144,8 +142,8 @@ const GemstoneCard = ({ gemstone, language = 'en' }) => {
                 sx={{
                   height: 20,
                   fontSize: '0.65rem',
-                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(27,67,50,0.35)' : 'rgba(27,67,50,0.10)',
-                  color: theme.palette.mode === 'dark' ? '#6FCFA0' : '#1B4332',
+                  bgcolor: isDark ? 'rgba(27,67,50,0.35)' : 'rgba(27,67,50,0.10)',
+                  color: isDark ? '#6FCFA0' : '#1B4332',
                   border: '1px solid rgba(27,67,50,0.18)',
                 }}
               />
@@ -161,33 +159,30 @@ const GemstoneCard = ({ gemstone, language = 'en' }) => {
           fullWidth
           component={RouterLink}
           to={gemstone?.id ? `/gemstone-guide/${gemstone.slug || gemstone.id}` : '/gemstone-guide'}
-          sx={(theme) => {
-            const isDark = theme.palette.mode === 'dark';
-            return {
-              fontSize: '0.74rem',
-              py: 1,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              fontWeight: 600,
-              borderRadius: 2,
+          sx={{
+            fontSize: '0.74rem',
+            py: 1,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            fontWeight: 600,
+            borderRadius: 2,
+            border: 'none !important',
+            outline: 'none',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            color: isDark ? '#F5D87A' : '#1B4332',
+            backgroundColor: isDark ? 'rgba(201, 168, 76, 0.14)' : 'rgba(27, 67, 50, 0.08)',
+            boxShadow: isDark ? 'none' : '0 2px 10px rgba(27, 67, 50, 0.05)',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            '&:hover': {
               border: 'none !important',
-              outline: 'none',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-              color: isDark ? '#F5D87A' : '#1B4332',
-              backgroundColor: isDark ? 'rgba(201, 168, 76, 0.14)' : 'rgba(27, 67, 50, 0.08)',
-              boxShadow: isDark ? 'none' : '0 2px 10px rgba(27, 67, 50, 0.05)',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              '&:hover': {
-                border: 'none !important',
-                backgroundColor: isDark ? 'rgba(201, 168, 76, 0.32)' : '#1B4332',
-                color: '#FFFFFF',
-                boxShadow: isDark
-                  ? '0 6px 22px rgba(201, 168, 76, 0.30)'
-                  : '0 6px 22px rgba(27, 67, 50, 0.25)',
-                transform: 'translateY(-1px)',
-              },
-            };
+              backgroundColor: isDark ? 'rgba(201, 168, 76, 0.32)' : '#1B4332',
+              color: '#FFFFFF',
+              boxShadow: isDark
+                ? '0 6px 22px rgba(201, 168, 76, 0.30)'
+                : '0 6px 22px rgba(27, 67, 50, 0.25)',
+              transform: 'translateY(-1px)',
+            },
           }}
         >
           View More
